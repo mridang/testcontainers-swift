@@ -18,6 +18,11 @@ public final class LogMessageWaitStrategy: WaitStrategy {
     private let times: Int
     private let predicateStreamsAnd: Bool
 
+    // A regex that never matches anything — used as a safe fallback when an
+    // invalid pattern string is supplied (avoids a crash while also never
+    // accidentally succeeding).
+    private static let neverMatchPattern = try! NSRegularExpression(pattern: "(?!)", options: [])
+
     /// Creates a strategy waiting for `pattern` to appear in container logs.
     ///
     /// - Parameters:
@@ -31,7 +36,7 @@ public final class LogMessageWaitStrategy: WaitStrategy {
     ) {
         self.pattern =
             (try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]))
-            ?? NSRegularExpression()
+            ?? LogMessageWaitStrategy.neverMatchPattern
         self.times = times
         self.predicateStreamsAnd = predicateStreamsAnd
         super.init()
@@ -198,12 +203,16 @@ public final class HttpWaitStrategy: WaitStrategy {
                 if let b = self._body { request.httpBody = Data(b.utf8) }
 
                 let session: URLSession
+                #if canImport(Darwin)
                 if self._insecureTls {
                     let config = URLSessionConfiguration.default
                     session = URLSession(configuration: config, delegate: InsecureTLSDelegate(), delegateQueue: nil)
                 } else {
                     session = URLSession.shared
                 }
+                #else
+                session = URLSession.shared
+                #endif
 
                 let (data, response) = try await session.data(for: request)
                 guard let httpResp = response as? HTTPURLResponse else { return false }
@@ -231,7 +240,10 @@ public final class HttpWaitStrategy: WaitStrategy {
     }
 }
 
-// Accept any TLS certificate (for insecure mode)
+// Accept any TLS certificate (for insecure mode).
+// Darwin (macOS/iOS) only — swift-corelibs-foundation on Linux does not expose
+// the Security framework APIs required for server-trust credential handling.
+#if canImport(Darwin)
 private final class InsecureTLSDelegate: NSObject, URLSessionDelegate {
     func urlSession(
         _ session: URLSession,
@@ -247,6 +259,7 @@ private final class InsecureTLSDelegate: NSObject, URLSessionDelegate {
         }
     }
 }
+#endif
 
 // MARK: - 3. HealthcheckWaitStrategy
 
@@ -261,7 +274,9 @@ public final class HealthcheckWaitStrategy: WaitStrategy {
                 let info = try await target.containerInfo()
                 healthStatus = info?.state?.health?.status
             } catch {
-                fputs("testcontainers: error fetching health status: \(error)\n", stderr)
+                FileHandle.standardError.write(
+                    Data("testcontainers: error fetching health status: \(error)\n".utf8)
+                )
                 healthStatus = nil
             }
 
@@ -484,7 +499,11 @@ private enum TCPProbe {
             DispatchQueue.global().async {
                 var hints = addrinfo()
                 hints.ai_family = AF_UNSPEC
+                #if canImport(Darwin)
                 hints.ai_socktype = SOCK_STREAM
+                #else
+                hints.ai_socktype = Int32(SOCK_STREAM.rawValue)
+                #endif
                 var res: UnsafeMutablePointer<addrinfo>?
                 defer { if res != nil { freeaddrinfo(res) } }
 
