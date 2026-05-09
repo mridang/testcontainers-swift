@@ -7,6 +7,10 @@
 import Foundation
 import TestcontainersCore
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 // One-shot deprecation warning for config — printed on the first call only.
 private nonisolated(unsafe) var _getConfigWarningPrinted = false
 
@@ -412,7 +416,7 @@ public class DockerCompose {
         interpolate: Bool = true
     ) throws -> [String: Any] {
         if !_getConfigWarningPrinted {
-            fputs(_configExperimentalWarning + "\n", stderr)
+            FileHandle.standardError.write(Data((_configExperimentalWarning + "\n").utf8))
             _getConfigWarningPrinted = true
         }
         var cmd = composeCommandProperty + ["config", "--format", "json"]
@@ -448,7 +452,9 @@ public class DockerCompose {
             guard let data = trimmed.data(using: .utf8),
                 let decoded = try? JSONSerialization.jsonObject(with: data)
             else {
-                fputs("testcontainers: ignoring unparseable line from docker compose ps: \(trimmed)\n", stderr)
+                FileHandle.standardError.write(
+                    Data("testcontainers: ignoring unparseable line from docker compose ps: \(trimmed)\n".utf8)
+                )
                 continue
             }
             if let arr = decoded as? [[String: Any]] {
