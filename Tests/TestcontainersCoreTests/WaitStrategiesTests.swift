@@ -1,13 +1,13 @@
 import Foundation
 import Testing
 
+@testable import TestcontainersCore
+
 #if canImport(Darwin)
     import Darwin
 #else
     import Glibc
 #endif
-
-@testable import TestcontainersCore
 
 // MARK: - Mock WaitStrategyTarget
 
@@ -1533,7 +1533,10 @@ final class MinimalTCPTestServer {
     }
 
     func stop() {
-        if listenFD >= 0 { close(listenFD); listenFD = -1 }
+        if listenFD >= 0 {
+            close(listenFD)
+            listenFD = -1
+        }
     }
 }
 
@@ -1549,7 +1552,8 @@ final class MinimalHTTPTestServer {
     var defaultBody: String = ""
 
     func enqueue(status: Int, body: String = "", headers: [String: String] = [:]) {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         responseQueue.append((status, body, headers))
     }
 
@@ -1581,7 +1585,10 @@ final class MinimalHTTPTestServer {
     }
 
     func stop() {
-        if listenFD >= 0 { close(listenFD); listenFD = -1 }
+        if listenFD >= 0 {
+            close(listenFD)
+            listenFD = -1
+        }
     }
 
     private func acceptLoop(fd: Int32) {
@@ -1617,10 +1624,14 @@ final class MinimalHTTPTestServer {
         lock.lock()
         recordedRequests.append((method, path, headers))
         let resp: (status: Int, body: String, extraHeaders: [String: String])
-        if !responseQueue.isEmpty { resp = responseQueue.removeFirst() }
-        else { resp = (defaultStatus, defaultBody, [:]) }
+        if !responseQueue.isEmpty {
+            resp = responseQueue.removeFirst()
+        } else {
+            resp = (defaultStatus, defaultBody, [:])
+        }
         lock.unlock()
-        var response = "HTTP/1.1 \(resp.status) Status\r\nContent-Length: \(resp.body.utf8.count)\r\nConnection: close\r\n"
+        var response =
+            "HTTP/1.1 \(resp.status) Status\r\nContent-Length: \(resp.body.utf8.count)\r\nConnection: close\r\n"
         for (k, v) in resp.extraHeaders { response += "\(k): \(v)\r\n" }
         response += "\r\n\(resp.body)"
         let d = Data(response.utf8)
