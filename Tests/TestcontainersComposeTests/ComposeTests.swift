@@ -189,7 +189,7 @@ struct ComposeUnitTests {
 
 // MARK: - Integration tests (require Docker)
 
-@Suite("Compose integration tests", .tags(.docker))
+@Suite("Compose integration tests", .serialized, .tags(.docker))
 struct ComposeIntegrationTests {
     @Test func composeStop() async throws {
         let compose = DockerCompose(context: fixture("basic"))
