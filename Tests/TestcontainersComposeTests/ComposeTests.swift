@@ -898,7 +898,10 @@ private final class ComposeTestHTTPServer {
     }
 
     func stop() {
-        if listenFD >= 0 { close(listenFD); listenFD = -1 }
+        if listenFD >= 0 {
+            close(listenFD)
+            listenFD = -1
+        }
     }
 }
 
