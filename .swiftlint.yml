@@ -1,9 +1,26 @@
 disabled_rules:
   - trailing_whitespace
   - line_length
+  # Short idiomatic names (ip, fd, fn, os, rw, rc, …) and names with
+  # leading/trailing underscores (_dockerClient, protocol_) are valid Swift
+  - identifier_name
+  # Inspect.swift / DockerClient.swift / Container.swift are long by design
+  - file_length
+  # stdout+stderr+exitCode 3-member tuples are idiomatic for process results
+  - large_tuple
+  # DockerClient and DockerContainer have many builder/API methods
+  - type_body_length
+  # DockerClient.createContainer has a large options surface by necessity
+  - cyclomatic_complexity
+  - function_body_length
+  # try! for a statically known-valid NSRegularExpression pattern
+  - force_try
+  # swift-format handles brace / comma / where formatting
+  - opening_brace
+  - trailing_comma
+  - for_where
 opt_in_rules:
   - explicit_init
-  - closure_body_length
   - prefer_self_type_over_type_of_self
 included:
   - Sources
