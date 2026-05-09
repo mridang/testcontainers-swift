@@ -58,8 +58,9 @@ jobs:
         if: always()
         run: |
           mkdir -p .out
-          BINARY=$(swift test --show-bin-path 2>/dev/null)/testcontainers-swiftPackageTests
-          PROFDATA=$(swift test --show-bin-path 2>/dev/null)/codecov/default.profdata
+          BINPATH=$(swift build --show-bin-path)
+          BINARY="$BINPATH/testcontainers-swiftPackageTests"
+          PROFDATA="$BINPATH/codecov/default.profdata"
           if [ -f "$PROFDATA" ]; then
             llvm-cov export -format=lcov "$BINARY" -instr-profile "$PROFDATA" > .out/lcov.info || true
           fi

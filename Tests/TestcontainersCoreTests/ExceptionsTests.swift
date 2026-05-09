@@ -102,10 +102,10 @@ struct ExceptionIsolationTests {
     }
 
     @Test func allFourTypesAreDistinct() {
-        let a = ContainerStartException("a")
-        let b = ContainerConnectException("b")
-        let c = ContainerIsNotRunning("c")
-        let d = NoSuchPortExposed("d")
+        let a: any Error = ContainerStartException("a")
+        let b: any Error = ContainerConnectException("b")
+        let c: any Error = ContainerIsNotRunning("c")
+        let d: any Error = NoSuchPortExposed("d")
         // Each is a different concrete type
         #expect(!(a is ContainerConnectException))
         #expect(!(b is ContainerIsNotRunning))

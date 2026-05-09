@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /nix/store/qg9vqxfpaqq8cra97dpxk7l2ry1bsrax-swift-5.10.1/bin/swift "$@"

@@ -7,7 +7,7 @@ import Testing
 
 /// A `DockerClient` subclass that intercepts `buildImage` and `removeImage`
 /// so image tests can run without a real Docker daemon.
-private class MockDockerClient: DockerClient {
+private class MockDockerClient: DockerClient, @unchecked Sendable {
     var fakeBuildImageResult: String = "sha256:abc123def456789"
     var fakeBuildLogs: [[String: Any]] = []
     var removeImageCalled = false

@@ -1581,7 +1581,7 @@ struct ContainerStateFullTests {
 // MARK: - ContainerNetworkSettings secondary addresses
 
 @Suite("ContainerNetworkSettings secondary addresses")
-struct ContainerNetworkSettingsSecondaryAddressTests {
+struct NetworkSettingsSecondaryAddrTests {
     private func decode(_ dict: [String: Any]) throws -> ContainerNetworkSettings {
         let data = try JSONSerialization.data(withJSONObject: dict)
         return try JSONDecoder().decode(ContainerNetworkSettings.self, from: data)

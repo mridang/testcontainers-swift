@@ -1,0 +1,101 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "docker@latest": {
+      "last_modified": "2026-04-28T17:03:49Z",
+      "resolved": "github:NixOS/nixpkgs/e75f25705c2934955ee5075e62530d74aca973c6#docker",
+      "source": "devbox-search",
+      "version": "29.4.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/x1qs65ygr7j3s8ahbs8p6n6vnpyjhsvc-docker-29.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/x1qs65ygr7j3s8ahbs8p6n6vnpyjhsvc-docker-29.4.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/6g2dn1c3yw82bqigrbc63163m63a5ga2-docker-29.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/6g2dn1c3yw82bqigrbc63163m63a5ga2-docker-29.4.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dz6ryj95h946c01x6r2irgffa91n7h6r-docker-29.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dz6ryj95h946c01x6r2irgffa91n7h6r-docker-29.4.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/jl4707yg00y0sv577av8kcf8hqjy60sm-docker-29.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/jl4707yg00y0sv577av8kcf8hqjy60sm-docker-29.4.1"
+        }
+      }
+    },
+    "swiftlint@latest": {
+      "last_modified": "2026-04-23T13:07:47Z",
+      "resolved": "github:NixOS/nixpkgs/01fbdeef22b76df85ea168fbfe1bfd9e63681b30#swiftlint",
+      "source": "devbox-search",
+      "version": "0.63.2",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/zg83gg6i3nigpx1fjp3l84w1162qqilq-swiftlint-0.63.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/zg83gg6i3nigpx1fjp3l84w1162qqilq-swiftlint-0.63.2"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/l3akba87mk8s8icas94j5ka8m45dl3bs-swiftlint-0.63.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/l3akba87mk8s8icas94j5ka8m45dl3bs-swiftlint-0.63.2"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/qpyj4g4y96rb03x1wx7in83hin81vd2x-swiftlint-0.63.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/qpyj4g4y96rb03x1wx7in83hin81vd2x-swiftlint-0.63.2"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/7d93qzplxdh10r6jdfdi9sdhnnj6min9-swiftlint-0.63.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/7d93qzplxdh10r6jdfdi9sdhnnj6min9-swiftlint-0.63.2"
+        }
+      }
+    }
+  }
+}

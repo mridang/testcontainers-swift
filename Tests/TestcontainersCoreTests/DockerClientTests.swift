@@ -198,7 +198,7 @@ struct DockerClientTcHostTests {
     // dockerHostHostname
     // -------------------------------------------------------------------------
 
-    @Suite("dockerHostHostname via tcProperties")
+    @Suite("dockerHostHostname via tcProperties", .serialized)
     struct DockerHostHostnameTcPropertiesTests {
 
         private func withTcHost(_ value: String?, body: () -> Void) {
@@ -265,7 +265,7 @@ struct DockerClientTcHostTests {
     // isSshDockerHost
     // -------------------------------------------------------------------------
 
-    @Suite("isSshDockerHost via tcProperties")
+    @Suite("isSshDockerHost via tcProperties", .serialized)
     struct IsSshDockerHostTcPropertiesTests {
 
         private func withTcHost(_ value: String?, body: () -> Void) {
@@ -310,7 +310,7 @@ struct DockerClientTcHostTests {
     // dockerHost
     // -------------------------------------------------------------------------
 
-    @Suite("dockerHost via tcProperties")
+    @Suite("dockerHost via tcProperties", .serialized)
     struct DockerHostTcPropertiesTests {
 
         private func withTcHost(_ value: String?, body: () -> Void) {
@@ -357,7 +357,7 @@ struct DockerClientTcHostTests {
     // DockerClient.host
     // -------------------------------------------------------------------------
 
-    @Suite("DockerClient.host via tcProperties")
+    @Suite("DockerClient.host via tcProperties", .serialized)
     struct DockerClientHostTcPropertiesTests {
 
         private func withTcHost(_ value: String?, body: (DockerClient) -> Void) {

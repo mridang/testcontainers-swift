@@ -445,18 +445,21 @@ public final class CompositeWaitStrategy: WaitStrategy {
         super.init()
     }
 
+    @discardableResult
     override public func withStartupTimeout(_ timeout: Duration) -> Self {
         for s in strategies { s.withStartupTimeout(timeout) }
         startupTimeout = timeout
         return self
     }
 
+    @discardableResult
     override public func withPollInterval(_ interval: Duration) -> Self {
         for s in strategies { s.withPollInterval(interval) }
         pollInterval = interval
         return self
     }
 
+    @discardableResult
     override public func withTransientExceptions(_ exceptions: [any Error.Type]) -> Self {
         for s in strategies { s.withTransientExceptions(exceptions) }
         transientExceptionTypes.append(contentsOf: exceptions)

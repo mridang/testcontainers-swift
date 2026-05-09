@@ -6,8 +6,10 @@ import Testing
 
 #if canImport(Darwin)
     import Darwin
+    private let kSockStream: Int32 = SOCK_STREAM
 #else
     import Glibc
+    private let kSockStream: Int32 = Int32(SOCK_STREAM.rawValue)
 #endif
 
 // MARK: - Helpers
@@ -632,6 +634,34 @@ struct ComposeAdditionalUnitTests {
         await container.reload()
     }
 
+    @Test func composeContainerWrappedContainerReturnsSelf() {
+        let container = ComposeContainer(service: "web")
+        #expect(container.wrappedContainer === container)
+    }
+
+    @Test func fromDictNormalizesPublishersWithSSHHost() {
+        let saved = testcontainersConfig.tcProperties["tc.host"]
+        defer {
+            if let saved = saved {
+                testcontainersConfig.tcProperties["tc.host"] = saved
+            } else {
+                testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
+            }
+        }
+        testcontainersConfig.tcProperties["tc.host"] = "ssh://user@10.0.0.5"
+        let dict: [String: Any] = [
+            "ID": "abc",
+            "Service": "web",
+            "State": "running",
+            "Publishers": [
+                ["URL": "0.0.0.0", "TargetPort": 80, "PublishedPort": 32768, "Protocol": "tcp"] as [String: Any]
+            ],
+        ]
+        let c = ComposeContainer(from: dict)
+        // normalize() rewrites 0.0.0.0 to the SSH host when tc.host is ssh://
+        #expect(c.publishers[0].url == "10.0.0.5")
+    }
+
     @Test func publisherErrorMessageContainsServiceNameAndPort() {
         let container = ComposeContainer(
             service: "database",
@@ -861,7 +891,7 @@ private final class ComposeTestHTTPServer {
     }
 
     func start() throws {
-        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        listenFD = socket(AF_INET, kSockStream, 0)
         guard listenFD >= 0 else { return }
         var opt: Int32 = 1
         setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &opt, socklen_t(MemoryLayout<Int32>.size))

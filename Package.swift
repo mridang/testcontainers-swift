@@ -32,7 +32,7 @@ let package = Package(
             dependencies: ["TestcontainersCore"],
             path: "Tests/TestcontainersCoreTests",
             swiftSettings: [
-                .swiftLanguageVersion(.v5)
+                .swiftLanguageMode(.v5)
             ]
         ),
         .testTarget(
@@ -41,7 +41,7 @@ let package = Package(
             path: "Tests/TestcontainersComposeTests",
             resources: [.copy("compose_fixtures")],
             swiftSettings: [
-                .swiftLanguageVersion(.v5)
+                .swiftLanguageMode(.v5)
             ]
         ),
     ]

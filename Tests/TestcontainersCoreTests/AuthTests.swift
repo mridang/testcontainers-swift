@@ -121,4 +121,12 @@ struct AuthTests {
         #expect(info.username == "user")
         #expect(info.password == "pass")
     }
+
+    @Test func throwsWhenAuthsValueIsArray() {
+        // Structurally invalid: "auths" is a JSON array instead of an object map.
+        let config = #"{"auths":["not","a","map"]}"#
+        #expect(throws: (any Error).self) {
+            _ = try parseDockerAuthConfig(config)
+        }
+    }
 }

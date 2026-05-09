@@ -70,7 +70,7 @@ struct LabelsTests {
     }
 
     @Test func doesNotMutateInputMap() throws {
-        var input: [String: String] = ["key": "value"]
+        let input: [String: String] = ["key": "value"]
         let expected = input
         _ = try createLabels(image: "nginx:latest", labels: input)
         #expect(input == expected)

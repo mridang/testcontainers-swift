@@ -5,8 +5,10 @@ import Testing
 
 #if canImport(Darwin)
     import Darwin
+    private let kSockStream: Int32 = SOCK_STREAM
 #else
     import Glibc
+    private let kSockStream: Int32 = Int32(SOCK_STREAM.rawValue)
 #endif
 
 // MARK: - Mock WaitStrategyTarget
@@ -570,16 +572,11 @@ struct ContainerStatusTransitionTests {
     }
 
     @Test func transitionsFromCreatedToRunning() async throws {
-        let target = MockWaitStrategyTarget()
-        var callCount = 0
-        target.statusValue = "created"
         let strategy = ContainerStatusWaitStrategy()
         strategy.startupTimeout = .seconds(5)
         strategy.pollInterval = .milliseconds(10)
-        // After 2 polls set status to running
         let mockTarget = SwitchingMockTarget(initialStatus: "created", switchTo: "running", afterCount: 2)
         try await strategy.waitUntilReady(target: mockTarget)
-        _ = callCount
     }
 
     @Test func throwsImmediatelyOnDeadStatus() async throws {
@@ -797,7 +794,7 @@ struct ExecWaitStrategyTimeoutMessageTests {
 // MARK: - FileExistsWaitStrategy timeout message
 
 @Suite("FileExistsWaitStrategy timeout message")
-struct FileExistsWaitStrategyTimeoutMessageTests {
+struct FileExistsTimeoutMessageTests {
     @Test func timeoutMessageIncludesFilePath() async throws {
         let target = MockWaitStrategyTarget()
         target.execResult = (exitCode: 1, output: Data())
@@ -1501,7 +1498,7 @@ final class MinimalTCPTestServer {
     private var listenFD: Int32 = -1
 
     func start() throws {
-        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        listenFD = socket(AF_INET, kSockStream, 0)
         guard listenFD >= 0 else { throw MinimalServerError.socketCreate }
         var optval: Int32 = 1
         setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &optval, socklen_t(MemoryLayout<Int32>.size))
@@ -1558,7 +1555,7 @@ final class MinimalHTTPTestServer {
     }
 
     func start() throws {
-        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        listenFD = socket(AF_INET, kSockStream, 0)
         guard listenFD >= 0 else { throw MinimalServerError.socketCreate }
         var optval: Int32 = 1
         setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &optval, socklen_t(MemoryLayout<Int32>.size))

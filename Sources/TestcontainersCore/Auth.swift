@@ -67,8 +67,11 @@ public func parseDockerAuthConfig(_ authConfig: String) throws -> [DockerAuthInf
         credsStoreWarning = nil
     }
 
-    guard let auths = json["auths"] as? [String: Any] else {
+    guard json["auths"] != nil else {
         return nil
+    }
+    guard let auths = json["auths"] as? [String: Any] else {
+        throw AuthParseError.invalidJSON("\"auths\" value is not a JSON object")
     }
 
     var result: [DockerAuthInfo] = []
