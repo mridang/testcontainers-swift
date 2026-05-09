@@ -231,14 +231,11 @@ public class ComposeContainer: WaitStrategyTarget {
 
     public func containerInfo() async throws -> ContainerInspectInfo? {
         if let cached = _cachedContainerInfo { return cached }
-        guard let compose = dockerCompose, let containerId = id else { return nil }
-        do {
-            let info = try await compose._dockerClient.containerInspectInfo(containerId)
-            _cachedContainerInfo = info
-            return info
-        } catch {
-            return nil
-        }
+        guard let compose = dockerCompose else { return nil }
+        guard let containerId = id, !containerId.isEmpty else { return nil }
+        let info = try await compose._dockerClient.containerInspectInfo(containerId)
+        _cachedContainerInfo = info
+        return info
     }
 
     public func reload() async {}
