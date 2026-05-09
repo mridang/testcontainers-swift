@@ -653,9 +653,9 @@ private func connectTCP(host: String, port: Int) throws -> Int32 {
     var hints = addrinfo()
     hints.ai_family = AF_UNSPEC
     #if canImport(Darwin)
-    hints.ai_socktype = SOCK_STREAM
+        hints.ai_socktype = SOCK_STREAM
     #else
-    hints.ai_socktype = Int32(SOCK_STREAM.rawValue)
+        hints.ai_socktype = Int32(SOCK_STREAM.rawValue)
     #endif
     var res: UnsafeMutablePointer<addrinfo>?
     defer { if res != nil { freeaddrinfo(res) } }
