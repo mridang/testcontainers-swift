@@ -204,14 +204,14 @@ public final class HttpWaitStrategy: WaitStrategy {
 
                 let session: URLSession
                 #if canImport(Darwin)
-                if self._insecureTls {
-                    let config = URLSessionConfiguration.default
-                    session = URLSession(configuration: config, delegate: InsecureTLSDelegate(), delegateQueue: nil)
-                } else {
-                    session = URLSession.shared
-                }
+                    if self._insecureTls {
+                        let config = URLSessionConfiguration.default
+                        session = URLSession(configuration: config, delegate: InsecureTLSDelegate(), delegateQueue: nil)
+                    } else {
+                        session = URLSession.shared
+                    }
                 #else
-                session = URLSession.shared
+                    session = URLSession.shared
                 #endif
 
                 let (data, response) = try await session.data(for: request)
@@ -244,21 +244,21 @@ public final class HttpWaitStrategy: WaitStrategy {
 // Darwin (macOS/iOS) only — swift-corelibs-foundation on Linux does not expose
 // the Security framework APIs required for server-trust credential handling.
 #if canImport(Darwin)
-private final class InsecureTLSDelegate: NSObject, URLSessionDelegate {
-    func urlSession(
-        _ session: URLSession,
-        didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
-    ) {
-        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-            let trust = challenge.protectionSpace.serverTrust
-        {
-            completionHandler(.useCredential, URLCredential(trust: trust))
-        } else {
-            completionHandler(.performDefaultHandling, nil)
+    private final class InsecureTLSDelegate: NSObject, URLSessionDelegate {
+        func urlSession(
+            _ session: URLSession,
+            didReceive challenge: URLAuthenticationChallenge,
+            completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+        ) {
+            if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+                let trust = challenge.protectionSpace.serverTrust
+            {
+                completionHandler(.useCredential, URLCredential(trust: trust))
+            } else {
+                completionHandler(.performDefaultHandling, nil)
+            }
         }
     }
-}
 #endif
 
 // MARK: - 3. HealthcheckWaitStrategy
@@ -500,9 +500,9 @@ private enum TCPProbe {
                 var hints = addrinfo()
                 hints.ai_family = AF_UNSPEC
                 #if canImport(Darwin)
-                hints.ai_socktype = SOCK_STREAM
+                    hints.ai_socktype = SOCK_STREAM
                 #else
-                hints.ai_socktype = Int32(SOCK_STREAM.rawValue)
+                    hints.ai_socktype = Int32(SOCK_STREAM.rawValue)
                 #endif
                 var res: UnsafeMutablePointer<addrinfo>?
                 defer { if res != nil { freeaddrinfo(res) } }
