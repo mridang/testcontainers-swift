@@ -68,7 +68,7 @@ public class Network {
                 "Network must be created before connecting a container. Call create() first."
             )
         }
-        try await dockerClient.connectNetwork(networkId, containerId, aliases: networkAliases ?? [])
+        try await dockerClient.connectNetwork(networkId, containerId, aliases: networkAliases)
     }
 
     /// Creates a network, runs `fn` with it, and removes the network afterwards.

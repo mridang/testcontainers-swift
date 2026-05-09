@@ -30,7 +30,7 @@ import Foundation
 ///     // run tests
 /// }
 /// ```
-public class DockerContainer: WaitStrategyTarget {
+public class DockerContainer: WaitStrategyTarget, @unchecked Sendable {
 
     // MARK: - Public properties
 
@@ -549,6 +549,7 @@ public final actor Reaper {
     private static var _initTask: Task<Reaper, Error>?
 
     private var reaperSocket: FileHandle?
+    private var reaperContainer: DockerContainer?
 
     /// Returns the singleton `Reaper`, creating it if necessary.
     public static func getInstance() async throws -> Reaper {
@@ -568,10 +569,21 @@ public final actor Reaper {
     }
 
     /// Resets the singleton (used in test teardown).
+    ///
+    /// Closes the Ryuk TCP socket and stops the Ryuk container. Resets the
+    /// singleton so that `getInstance()` will create a fresh instance on the
+    /// next call.
     public static func deleteInstance() async {
         _initTask = nil
         if let instance = _instance {
             await instance.closeSocket()
+            do {
+                try await instance.stopContainer()
+            } catch {
+                FileHandle.standardError.write(
+                    Data("testcontainers: error stopping Ryuk container: \(error)\n".utf8)
+                )
+            }
         }
         _instance = nil
     }
@@ -579,6 +591,13 @@ public final actor Reaper {
     private func closeSocket() {
         reaperSocket?.closeFile()
         reaperSocket = nil
+    }
+
+    private func stopContainer() async throws {
+        if let c = reaperContainer {
+            try await c.stop()
+            reaperContainer = nil
+        }
     }
 
     private static func createInstance() async throws -> Reaper {
@@ -638,12 +657,13 @@ public final actor Reaper {
 
         let fh = FileHandle(fileDescriptor: socketFd, closeOnDealloc: false)
         let reaper = Reaper()
-        await reaper.storeSocket(fh)
+        await reaper.store(socket: fh, container: ryukContainer)
         return reaper
     }
 
-    private func storeSocket(_ fh: FileHandle) {
+    private func store(socket fh: FileHandle, container: DockerContainer) {
         reaperSocket = fh
+        reaperContainer = container
     }
 }
 
