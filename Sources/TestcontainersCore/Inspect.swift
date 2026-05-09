@@ -70,17 +70,13 @@ public struct ContainerState: Codable {
 /// Container OS/architecture platform.
 public struct ContainerPlatform: Codable {
     public let os: String?
-    public let osVersion: String?
-    public let osFeatures: [String]?
     public let architecture: String?
     public let variant: String?
 
     enum CodingKeys: String, CodingKey {
-        case os = "Os"
-        case osVersion = "OsVersion"
-        case osFeatures = "OsFeatures"
-        case architecture = "Architecture"
-        case variant = "Variant"
+        case os = "os"
+        case architecture = "architecture"
+        case variant = "variant"
     }
 }
 
@@ -89,13 +85,21 @@ public struct ContainerImageManifestDescriptor: Codable {
     public let mediaType: String?
     public let digest: String?
     public let size: Int?
+    public let urls: [String]?
+    public let annotations: [String: String]?
+    public let data: String?
     public let platform: ContainerPlatform?
+    public let artifactType: String?
 
     enum CodingKeys: String, CodingKey {
-        case mediaType = "MediaType"
-        case digest = "Digest"
-        case size = "Size"
-        case platform = "Platform"
+        case mediaType = "mediaType"
+        case digest = "digest"
+        case size = "size"
+        case urls = "urls"
+        case annotations = "annotations"
+        case data = "data"
+        case platform = "platform"
+        case artifactType = "artifactType"
     }
 }
 
@@ -345,10 +349,12 @@ public struct ContainerHostConfig: Codable {
     public let devices: [ContainerDeviceMapping]?
     public let deviceCgroupRules: [String]?
     public let deviceRequests: [ContainerDeviceRequest]?
+    public let kernelMemoryTCP: Int?
     public let memoryReservation: Int?
     public let memorySwap: Int?
     public let memorySwappiness: Int?
     public let oomKillDisable: Bool?
+    public let `init`: Bool?
     public let pidsLimit: Int?
     public let ulimits: [ContainerUlimit]?
     public let cpuCount: Int?
@@ -415,10 +421,12 @@ public struct ContainerHostConfig: Codable {
         case devices = "Devices"
         case deviceCgroupRules = "DeviceCgroupRules"
         case deviceRequests = "DeviceRequests"
+        case kernelMemoryTCP = "KernelMemoryTCP"
         case memoryReservation = "MemoryReservation"
         case memorySwap = "MemorySwap"
         case memorySwappiness = "MemorySwappiness"
         case oomKillDisable = "OomKillDisable"
+        case `init` = "Init"
         case pidsLimit = "PidsLimit"
         case ulimits = "Ulimits"
         case cpuCount = "CpuCount"
@@ -559,6 +567,8 @@ public struct ContainerNetworkEndpoint: Codable {
     public let links: [String]?
     public let aliases: [String]?
     public let macAddress: String?
+    public let driverOpts: [String: String]?
+    public let gwPriority: Int?
     public let networkID: String?
     public let endpointID: String?
     public let gateway: String?
@@ -567,7 +577,6 @@ public struct ContainerNetworkEndpoint: Codable {
     public let ipv6Gateway: String?
     public let globalIPv6Address: String?
     public let globalIPv6PrefixLen: Int?
-    public let driverOpts: [String: String]?
     public let dnsNames: [String]?
 
     enum CodingKeys: String, CodingKey {
@@ -575,6 +584,8 @@ public struct ContainerNetworkEndpoint: Codable {
         case links = "Links"
         case aliases = "Aliases"
         case macAddress = "MacAddress"
+        case driverOpts = "DriverOpts"
+        case gwPriority = "GwPriority"
         case networkID = "NetworkID"
         case endpointID = "EndpointID"
         case gateway = "Gateway"
@@ -583,7 +594,6 @@ public struct ContainerNetworkEndpoint: Codable {
         case ipv6Gateway = "IPv6Gateway"
         case globalIPv6Address = "GlobalIPv6Address"
         case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"
-        case driverOpts = "DriverOpts"
         case dnsNames = "DNSNames"
     }
 }
@@ -603,38 +613,42 @@ public struct ContainerAddress: Codable {
 public struct ContainerNetworkSettings: Codable {
     public let bridge: String?
     public let sandboxID: String?
-    public let sandboxKey: String?
     public let hairpinMode: Bool?
     public let linkLocalIPv6Address: String?
     public let linkLocalIPv6PrefixLen: Int?
     public let ports: [String: [ContainerPortBinding]?]?
-    public let portMapping: [String: [String: String]]?
+    public let sandboxKey: String?
+    public let secondaryIPAddresses: [ContainerAddress]?
+    public let secondaryIPv6Addresses: [ContainerAddress]?
+    public let endpointID: String?
+    public let gateway: String?
+    public let globalIPv6Address: String?
+    public let globalIPv6PrefixLen: Int?
     public let ipAddress: String?
     public let ipPrefixLen: Int?
     public let ipv6Gateway: String?
     public let macAddress: String?
     public let networks: [String: ContainerNetworkEndpoint]?
-    public let globalIPv6Address: String?
-    public let globalIPv6PrefixLen: Int?
-    public let gateway: String?
 
     enum CodingKeys: String, CodingKey {
         case bridge = "Bridge"
         case sandboxID = "SandboxID"
-        case sandboxKey = "SandboxKey"
         case hairpinMode = "HairpinMode"
         case linkLocalIPv6Address = "LinkLocalIPv6Address"
         case linkLocalIPv6PrefixLen = "LinkLocalIPv6PrefixLen"
         case ports = "Ports"
-        case portMapping = "PortMapping"
+        case sandboxKey = "SandboxKey"
+        case secondaryIPAddresses = "SecondaryIPAddresses"
+        case secondaryIPv6Addresses = "SecondaryIPv6Addresses"
+        case endpointID = "EndpointID"
+        case gateway = "Gateway"
+        case globalIPv6Address = "GlobalIPv6Address"
+        case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"
         case ipAddress = "IPAddress"
         case ipPrefixLen = "IPPrefixLen"
         case ipv6Gateway = "IPv6Gateway"
         case macAddress = "MacAddress"
         case networks = "Networks"
-        case globalIPv6Address = "GlobalIPv6Address"
-        case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"
-        case gateway = "Gateway"
     }
 
     /// Returns the networks map, or `nil` if absent.
@@ -657,6 +671,7 @@ public struct ContainerInspectInfo: Codable {
     public let restartCount: Int?
     public let driver: String?
     public let platform: String?
+    public let imageManifestDescriptor: ContainerImageManifestDescriptor?
     public let mountLabel: String?
     public let processLabel: String?
     public let appArmorProfile: String?
@@ -684,6 +699,7 @@ public struct ContainerInspectInfo: Codable {
         case restartCount = "RestartCount"
         case driver = "Driver"
         case platform = "Platform"
+        case imageManifestDescriptor = "ImageManifestDescriptor"
         case mountLabel = "MountLabel"
         case processLabel = "ProcessLabel"
         case appArmorProfile = "AppArmorProfile"

@@ -133,7 +133,7 @@ public class DockerClient: @unchecked Sendable {
 
     private static func tcpDockerHost() -> String? {
         guard let h = ProcessInfo.processInfo.environment["DOCKER_HOST"],
-            h.hasPrefix("tcp://") || h.hasPrefix("http://")
+            h.hasPrefix("tcp://") || h.hasPrefix("http://") || h.hasPrefix("https://")
         else { return nil }
         return h
     }
@@ -238,12 +238,14 @@ public class DockerClient: @unchecked Sendable {
     /// mapped explicitly. All other keys have their first character upper-cased.
     ///
     /// Exposed for unit testing.
-    public static func toDockerKey(_ dartKey: String) -> String {
-        return _toDockerKey(dartKey)
+    public static func toDockerKey(_ dartKey: String) throws -> String {
+        return try _toDockerKey(dartKey)
     }
 
-    private static func _toDockerKey(_ key: String) -> String {
-        if key.isEmpty { return key }
+    private static func _toDockerKey(_ key: String) throws -> String {
+        if key.isEmpty {
+            throw DockerClientError.unexpectedResponse("Docker key must not be empty")
+        }
         switch key {
         case "privileged": return "Privileged"
         case "auto_remove", "autoRemove": return "AutoRemove"
@@ -270,11 +272,16 @@ public class DockerClient: @unchecked Sendable {
         labels: [String: String] = [:],
         kwargs: [String: Any] = [:]
     ) async throws -> String {
+        // Extract user-provided labels from kwargs so they don't end up in HostConfig.
+        let userLabels = kwargs["labels"] as? [String: String] ?? labels
+        var hostConfigKwargs = kwargs
+        hostConfigKwargs.removeValue(forKey: "labels")
+
         var body: [String: Any] = ["Image": image]
 
         if let cmd = command { body["Cmd"] = cmd }
         body["Env"] = env.map { "\($0.key)=\($0.value)" }
-        body["Labels"] = labels
+        body["Labels"] = userLabels
 
         // ExposedPorts
         var exposed: [String: Any] = [:]
@@ -307,9 +314,9 @@ public class DockerClient: @unchecked Sendable {
             hostConfig["NetworkMode"] = netName
         }
 
-        // Apply all kwargs → converted to Docker PascalCase keys
-        for (k, v) in kwargs {
-            hostConfig[Self._toDockerKey(k)] = v
+        // Apply remaining kwargs (labels already extracted) → converted to Docker PascalCase keys
+        for (k, v) in hostConfigKwargs {
+            hostConfig[try Self._toDockerKey(k)] = v
         }
 
         if !hostConfig.isEmpty { body["HostConfig"] = hostConfig }

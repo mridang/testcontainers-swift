@@ -6,14 +6,14 @@
 import Foundation
 
 /// Internal sentinel thrown by `ContainerStatusWaitStrategy` to break the poll loop.
-public struct StopPollingError: Error {}
+struct StopPollingError: Error {}
 
 /// Throws `StopPollingError` to signal that the poll loop should stop immediately
 /// without waiting for the timeout.
 ///
 /// Used by `ContainerStatusWaitStrategy` when the container enters an
 /// unexpected state (e.g. `"exited"` or `"dead"`) from which it cannot recover.
-public func throwStopIteration() throws -> Never {
+func throwStopIteration() throws -> Never {
     throw StopPollingError()
 }
 
@@ -78,7 +78,7 @@ open class WaitStrategy {
     /// Initialises a strategy using the global config defaults.
     public init() {
         let cfg = testcontainersConfig
-        startupTimeout = .seconds(Int(cfg.timeout))
+        startupTimeout = .milliseconds(Int(cfg.timeout * 1000))
         pollInterval = .milliseconds(Int(cfg.sleepTime * 1000))
     }
 

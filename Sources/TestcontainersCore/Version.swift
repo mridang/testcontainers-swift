@@ -75,6 +75,34 @@ public struct ComparableVersion: Comparable, Equatable, CustomStringConvertible 
     public static func == (lhs: ComparableVersion, rhs: ComparableVersion) -> Bool {
         lhs.parts == rhs.parts
     }
+
+    // MARK: - String comparison overloads (mirrors Dart's operator <(Object other))
+
+    /// Returns `true` when `lhs` is strictly less than the version represented by `rhs`.
+    ///
+    /// Returns `false` (rather than throwing) when `rhs` cannot be parsed.
+    public static func < (lhs: ComparableVersion, rhs: String) -> Bool {
+        guard let rhsVer = try? ComparableVersion(rhs) else { return false }
+        return lhs < rhsVer
+    }
+
+    /// Returns `true` when `lhs` is less than or equal to the version represented by `rhs`.
+    public static func <= (lhs: ComparableVersion, rhs: String) -> Bool {
+        guard let rhsVer = try? ComparableVersion(rhs) else { return false }
+        return lhs <= rhsVer
+    }
+
+    /// Returns `true` when `lhs` is strictly greater than the version represented by `rhs`.
+    public static func > (lhs: ComparableVersion, rhs: String) -> Bool {
+        guard let rhsVer = try? ComparableVersion(rhs) else { return false }
+        return lhs > rhsVer
+    }
+
+    /// Returns `true` when `lhs` is greater than or equal to the version represented by `rhs`.
+    public static func >= (lhs: ComparableVersion, rhs: String) -> Bool {
+        guard let rhsVer = try? ComparableVersion(rhs) else { return false }
+        return lhs >= rhsVer
+    }
 }
 
 /// Errors thrown by `ComparableVersion`.

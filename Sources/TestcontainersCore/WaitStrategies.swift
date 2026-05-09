@@ -7,6 +7,38 @@ import Foundation
     import FoundationNetworking
 #endif
 
+// MARK: - waitForLogs convenience function
+
+/// Waits until a specific log message appears in the container's output.
+///
+/// Convenience wrapper around `LogMessageWaitStrategy`.
+///
+/// - Parameters:
+///   - container: The target container to watch.
+///   - predicate: A pattern string to search for in the container's log output.
+///   - timeout: Maximum wait time. Defaults to `testcontainersConfig.timeout`.
+///   - interval: Poll interval. Default: 1 second.
+///   - predicateStreamsAnd: When `true`, the pattern must match **both** stdout
+///     and stderr. Default: `false`.
+/// - Returns: The elapsed `Duration` from start to the log message appearing.
+@discardableResult
+public func waitForLogs(
+    _ container: any WaitStrategyTarget,
+    _ predicate: String,
+    timeout: Duration? = nil,
+    interval: Duration = .seconds(1),
+    predicateStreamsAnd: Bool = false
+) async throws -> Duration {
+    let cfg = testcontainersConfig
+    let effectiveTimeout = timeout ?? .milliseconds(Int(cfg.timeout * 1000))
+    let strategy = LogMessageWaitStrategy(predicate, predicateStreamsAnd: predicateStreamsAnd)
+    _ = strategy.withStartupTimeout(effectiveTimeout)
+    _ = strategy.withPollInterval(interval)
+    let start = ContinuousClock.now
+    try await strategy.waitUntilReady(target: container)
+    return ContinuousClock.now - start
+}
+
 // MARK: - 1. LogMessageWaitStrategy
 
 /// Waits until a pattern appears in the container's log output.

@@ -106,7 +106,7 @@ public class ComposeContainer: WaitStrategyTarget {
     public let service: String?
 
     /// Container state string, e.g. `"running"`, `"exited"`.
-    public var state: String?
+    public let state: String?
 
     /// Docker health-check status string.
     public let health: String?
@@ -115,7 +115,7 @@ public class ComposeContainer: WaitStrategyTarget {
     public let exitCode: Int?
 
     /// Published port mappings for this container, already normalised.
-    public var publishers: [PublishedPortModel]
+    public let publishers: [PublishedPortModel]
 
     internal var dockerCompose: DockerCompose?
     private var _cachedContainerInfo: ContainerInspectInfo?
@@ -225,7 +225,7 @@ public class ComposeContainer: WaitStrategyTarget {
         guard let svc = service else {
             throw ComposeError.noReference("Service name not set on ComposeContainer")
         }
-        let (stdout, _, exitCode) = compose.execInContainer(command, serviceName: svc)
+        let (stdout, _, exitCode) = try compose.execInContainer(command, serviceName: svc)
         return (exitCode: exitCode, output: Data(stdout.utf8))
     }
 
@@ -233,9 +233,13 @@ public class ComposeContainer: WaitStrategyTarget {
         if let cached = _cachedContainerInfo { return cached }
         guard let compose = dockerCompose else { return nil }
         guard let containerId = id, !containerId.isEmpty else { return nil }
-        let info = try await compose._dockerClient.containerInspectInfo(containerId)
-        _cachedContainerInfo = info
-        return info
+        do {
+            let info = try await compose._dockerClient.containerInspectInfo(containerId)
+            _cachedContainerInfo = info
+            return info
+        } catch {
+            return nil
+        }
     }
 
     public func reload() async {}
@@ -383,14 +387,16 @@ public class DockerCompose {
     ///
     /// - `down: true` (default) — runs `docker compose down --volumes`.
     /// - `down: false` — runs `docker compose stop`.
-    public func stop(down: Bool = true) {
+    ///
+    /// Throws `ComposeError.processError` when the underlying command fails.
+    public func stop(down: Bool = true) throws {
         let cmd: [String]
         if down {
             cmd = composeCommandProperty + ["down", "--volumes"] + (services ?? [])
         } else {
             cmd = composeCommandProperty + ["stop"] + (services ?? [])
         }
-        _ = try? _runCommand(cmd)
+        try _runCommand(cmd)
     }
 
     // MARK: - Container introspection
@@ -491,9 +497,18 @@ public class DockerCompose {
     ///
     /// Returns `(stdout, stderr, exitCode)` — the raw output strings and the
     /// process exit code.
-    public func execInContainer(_ command: [String], serviceName: String? = nil) -> (String, String, Int) {
-        let svcName = serviceName ?? (try? container())?.service ?? ""
-        let cmd = composeCommandProperty + ["exec", "-T", svcName] + command
+    ///
+    /// Throws `ComposeError.noReference` when no service name can be determined.
+    public func execInContainer(_ command: [String], serviceName: String? = nil) throws -> (String, String, Int) {
+        let resolvedService = serviceName ?? (try? container())?.service
+        guard let svc = resolvedService else {
+            throw ComposeError.noReference(
+                "Cannot exec: could not determine a service name. "
+                    + "Pass serviceName explicitly or ensure the stack has exactly one "
+                    + "running container whose service field is non-null."
+            )
+        }
+        let cmd = composeCommandProperty + ["exec", "-T", svc] + command
         let result = _runCommandAllowingFailure(cmd)
         return (result.stdout, result.stderr, result.exitCode)
     }
@@ -550,10 +565,10 @@ public class DockerCompose {
         try await compose.start()
         do {
             let result = try await fn(compose)
-            compose.stop(down: !compose.keepVolumes)
+            try compose.stop(down: !compose.keepVolumes)
             return result
         } catch {
-            compose.stop(down: !compose.keepVolumes)
+            try? compose.stop(down: !compose.keepVolumes)
             throw error
         }
     }

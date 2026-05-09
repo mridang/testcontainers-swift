@@ -149,29 +149,31 @@ struct ComposeUnitTests {
     }
 
     @Test func publisherThrowsNoSuchPortWhenNoneMatch() throws {
-        let container = ComposeContainer()
-        container.publishers = [
-            PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
-        ]
+        let container = ComposeContainer(
+            publishers: [
+                PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
+            ]
+        )
         #expect(throws: NoSuchPortExposed.self) {
             _ = try container.publisher(byPort: 9999)
         }
     }
 
     @Test func publisherReturnsMatchingPublisher() throws {
-        let container = ComposeContainer()
-        container.publishers = [
-            PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
-        ]
+        let container = ComposeContainer(
+            publishers: [
+                PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
+            ]
+        )
         let pub = try container.publisher(byPort: 80)
         #expect(pub.publishedPort == 8080)
     }
 
     @Test func composeContainerStatusIsStateOrUnknown() {
-        let container = ComposeContainer()
-        #expect(container.status == "unknown")
-        container.state = "running"
-        #expect(container.status == "running")
+        let unknown = ComposeContainer()
+        #expect(unknown.status == "unknown")
+        let running = ComposeContainer(state: "running")
+        #expect(running.status == "running")
     }
 
     @Test func composeContainerHostIpIs127001() async throws {
@@ -194,7 +196,7 @@ struct ComposeIntegrationTests {
     @Test func composeStop() async throws {
         let compose = DockerCompose(context: fixture("basic"))
         try await compose.start()
-        compose.stop()
+        try compose.stop()
     }
 
     @Test func composeStartStop() async throws {
@@ -202,7 +204,7 @@ struct ComposeIntegrationTests {
         try await compose.start()
         let allContainers = compose.containers()
         #expect(!allContainers.isEmpty)
-        compose.stop()
+        try compose.stop()
     }
 
     @Test func startStopMultiple() async throws {
@@ -210,7 +212,7 @@ struct ComposeIntegrationTests {
         try await compose.start()
         let allContainers = compose.containers()
         #expect(allContainers.count >= 2)
-        compose.stop()
+        try compose.stop()
     }
 
     @Test func composeE2E() async throws {
@@ -252,7 +254,7 @@ struct ComposeIntegrationTests {
         try await DockerCompose.use(DockerCompose(context: fixture("basic"))) { compose in
             let container = try compose.container()
             let svc = try #require(container.service)
-            let (stdout, _, exitCode) = compose.execInContainer(["echo", "hello"], serviceName: svc)
+            let (stdout, _, exitCode) = try compose.execInContainer(["echo", "hello"], serviceName: svc)
             #expect(exitCode == 0)
             #expect(stdout.contains("hello"))
         }
@@ -263,7 +265,7 @@ struct ComposeIntegrationTests {
             let allContainers = compose.containers()
             for container in allContainers {
                 if let svc = container.service {
-                    let (_, _, exitCode) = compose.execInContainer(["true"], serviceName: svc)
+                    let (_, _, exitCode) = try compose.execInContainer(["true"], serviceName: svc)
                     #expect(exitCode == 0)
                 }
             }
@@ -274,7 +276,7 @@ struct ComposeIntegrationTests {
         for fixtureName in ["basic", "basic_multiple", "basic_volume", "port_single", "port_multiple"] {
             let compose = DockerCompose(context: fixture(fixtureName))
             try await compose.start()
-            defer { compose.stop() }
+            defer { try? compose.stop() }
             let cfg = try compose.config()
             #expect(!cfg.isEmpty)
         }
@@ -289,7 +291,7 @@ struct ComposeIntegrationTests {
             try await compose.start()
             let allContainers = compose.containers()
             #expect(!allContainers.isEmpty)
-            compose.stop()
+            try compose.stop()
         }
     }
 
