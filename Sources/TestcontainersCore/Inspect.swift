@@ -74,9 +74,9 @@ public struct ContainerPlatform: Codable {
     public let variant: String?
 
     enum CodingKeys: String, CodingKey {
-        case os = "os"
-        case architecture = "architecture"
-        case variant = "variant"
+        case os
+        case architecture
+        case variant
     }
 }
 
@@ -92,14 +92,14 @@ public struct ContainerImageManifestDescriptor: Codable {
     public let artifactType: String?
 
     enum CodingKeys: String, CodingKey {
-        case mediaType = "mediaType"
-        case digest = "digest"
-        case size = "size"
-        case urls = "urls"
-        case annotations = "annotations"
-        case data = "data"
-        case platform = "platform"
-        case artifactType = "artifactType"
+        case mediaType
+        case digest
+        case size
+        case urls
+        case annotations
+        case data
+        case platform
+        case artifactType
     }
 }
 
