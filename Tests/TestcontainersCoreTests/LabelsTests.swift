@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import TestcontainersCore
 
 @Suite("createLabels")
@@ -88,11 +89,14 @@ struct LabelsTests {
 
     @Test func throwsWhenAnyOfMultipleLabelsHasReservedPrefix() {
         #expect(throws: (any Error).self) {
-            _ = try createLabels(image: "nginx:latest", labels: [
-                "com.example.ok": "good",
-                "org.testcontainers.bad": "value",
-                "net.app.other": "fine",
-            ])
+            _ = try createLabels(
+                image: "nginx:latest",
+                labels: [
+                    "com.example.ok": "good",
+                    "org.testcontainers.bad": "value",
+                    "net.app.other": "fine",
+                ]
+            )
         }
     }
 }

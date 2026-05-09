@@ -23,8 +23,10 @@ public struct DockerAuthInfo {
 
 // One-shot warning flags — printed to stderr the first time the key is seen.
 // nonisolated(unsafe) because these are only written during single-threaded init.
-private nonisolated(unsafe) var credHelpersWarning: String? = "DOCKER_AUTH_CONFIG is experimental, credHelpers not supported yet"
-private nonisolated(unsafe) var credsStoreWarning: String? = "DOCKER_AUTH_CONFIG is experimental, credsStore not supported yet"
+private nonisolated(unsafe) var credHelpersWarning: String? =
+    "DOCKER_AUTH_CONFIG is experimental, credHelpers not supported yet"
+private nonisolated(unsafe) var credsStoreWarning: String? =
+    "DOCKER_AUTH_CONFIG is experimental, credsStore not supported yet"
 
 /// Parses a JSON Docker `config.json`-style auth configuration string.
 ///
@@ -72,9 +74,9 @@ public func parseDockerAuthConfig(_ authConfig: String) throws -> [DockerAuthInf
     var result: [DockerAuthInfo] = []
     for (registry, value) in auths {
         guard let entry = value as? [String: Any],
-              let authB64 = entry["auth"] as? String,
-              let decoded = Data(base64Encoded: authB64),
-              let authStr = String(data: decoded, encoding: .utf8)
+            let authB64 = entry["auth"] as? String,
+            let decoded = Data(base64Encoded: authB64),
+            let authStr = String(data: decoded, encoding: .utf8)
         else {
             throw AuthParseError.invalidBase64(registry)
         }

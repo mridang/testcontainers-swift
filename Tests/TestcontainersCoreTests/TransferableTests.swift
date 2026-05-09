@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import TestcontainersCore
 
 /// Minimal TAR parser to verify entries produced by buildTransferTar.
@@ -23,11 +24,15 @@ private func parseTar(_ data: Data) -> [TarEntry] {
         let name = String(bytes: nameBytes.prefix(while: { $0 != 0 }), encoding: .utf8) ?? ""
 
         // Mode field: bytes 100-107 (octal ASCII)
-        let modeStr = String(bytes: data[offset + 100..<offset + 108].prefix(while: { $0 != 0 && $0 != 32 }), encoding: .utf8) ?? "0"
+        let modeStr =
+            String(bytes: data[offset + 100..<offset + 108].prefix(while: { $0 != 0 && $0 != 32 }), encoding: .utf8)
+            ?? "0"
         let mode = Int(modeStr, radix: 8) ?? 0
 
         // Size field: bytes 124-135 (octal ASCII)
-        let sizeStr = String(bytes: data[offset + 124..<offset + 136].prefix(while: { $0 != 0 && $0 != 32 }), encoding: .utf8) ?? "0"
+        let sizeStr =
+            String(bytes: data[offset + 124..<offset + 136].prefix(while: { $0 != 0 && $0 != 32 }), encoding: .utf8)
+            ?? "0"
         let size = Int(sizeStr, radix: 8) ?? 0
 
         offset += 512
@@ -74,7 +79,7 @@ struct TransferableTests {
 
     @Test func kDefaultTransferModeIs644() {
         #expect(kDefaultTransferMode == 0x1A4)
-        #expect(kDefaultTransferMode == 420) // octal 644
+        #expect(kDefaultTransferMode == 420)  // octal 644
     }
 
     @Test func producesValidTarFromFile() throws {

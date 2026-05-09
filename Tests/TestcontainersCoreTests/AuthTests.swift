@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import TestcontainersCore
 
 @Suite("parseDockerAuthConfig")
@@ -8,8 +9,8 @@ struct AuthTests {
         let creds = "myuser:mypassword"
         let encoded = Data(creds.utf8).base64EncodedString()
         let config = """
-        {"auths":{"https://index.docker.io/v1/":{"auth":"\(encoded)"}}}
-        """
+            {"auths":{"https://index.docker.io/v1/":{"auth":"\(encoded)"}}}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r.count == 1)
@@ -20,16 +21,16 @@ struct AuthTests {
 
     @Test func returnsNilWhenNoAuthsSection() throws {
         let config = """
-        {"credHelpers":{"amazonaws.com":"ecr-login"}}
-        """
+            {"credHelpers":{"amazonaws.com":"ecr-login"}}
+            """
         let result = try parseDockerAuthConfig(config)
         #expect(result == nil)
     }
 
     @Test func returnsNilWhenOnlyCredsStore() throws {
         let config = """
-        {"credsStore":"ecr-login"}
-        """
+            {"credsStore":"ecr-login"}
+            """
         let result = try parseDockerAuthConfig(config)
         #expect(result == nil)
     }
@@ -39,8 +40,8 @@ struct AuthTests {
         let auth2 = Data("user_new:pass_new".utf8).base64EncodedString()
         let auth3 = Data("abc:123".utf8).base64EncodedString()
         let config = """
-        {"auths":{"localhost:5000":{"auth":"\(auth1)"},"https://example.com":{"auth":"\(auth2)"},"example2.com":{"auth":"\(auth3)"}}}
-        """
+            {"auths":{"localhost:5000":{"auth":"\(auth1)"},"https://example.com":{"auth":"\(auth2)"},"example2.com":{"auth":"\(auth3)"}}}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r.count == 3)
@@ -48,8 +49,8 @@ struct AuthTests {
 
     @Test func returnsNilForUnknownTopLevelKey() throws {
         let config = """
-        {"key":"value"}
-        """
+            {"key":"value"}
+            """
         let result = try parseDockerAuthConfig(config)
         #expect(result == nil)
     }
@@ -63,8 +64,8 @@ struct AuthTests {
     @Test func mixedConfigReturnsOnlyAuthsEntries() throws {
         let auth1 = Data("user1:pass1".utf8).base64EncodedString()
         let config = """
-        {"auths":{"localhost:5000":{"auth":"\(auth1)"}},"credHelpers":{"amazonaws.com":"ecr-login"},"credsStore":"ecr-login"}
-        """
+            {"auths":{"localhost:5000":{"auth":"\(auth1)"}},"credHelpers":{"amazonaws.com":"ecr-login"},"credsStore":"ecr-login"}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r.count == 1)
@@ -74,8 +75,8 @@ struct AuthTests {
     @Test func skipsEntryWithNoColonInCredentials() throws {
         let badAuth = Data("nocolon".utf8).base64EncodedString()
         let config = """
-        {"auths":{"https://bad.example.com":{"auth":"\(badAuth)"}}}
-        """
+            {"auths":{"https://bad.example.com":{"auth":"\(badAuth)"}}}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r.isEmpty)
@@ -85,8 +86,8 @@ struct AuthTests {
         let badAuth = Data("nocolon".utf8).base64EncodedString()
         let goodAuth = Data("user:pass".utf8).base64EncodedString()
         let config = """
-        {"auths":{"bad.example.com":{"auth":"\(badAuth)"},"good.example.com":{"auth":"\(goodAuth)"}}}
-        """
+            {"auths":{"bad.example.com":{"auth":"\(badAuth)"},"good.example.com":{"auth":"\(goodAuth)"}}}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r.count == 1)
@@ -96,8 +97,8 @@ struct AuthTests {
 
     @Test func returnsEmptyListForEmptyAuthsMap() throws {
         let config = """
-        {"auths":{}}
-        """
+            {"auths":{}}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r.isEmpty)
@@ -106,8 +107,8 @@ struct AuthTests {
     @Test func passwordMayContainColons() throws {
         let auth = Data("user:pass:with:colons".utf8).base64EncodedString()
         let config = """
-        {"auths":{"registry.example.com":{"auth":"\(auth)"}}}
-        """
+            {"auths":{"registry.example.com":{"auth":"\(auth)"}}}
+            """
         let result = try parseDockerAuthConfig(config)
         let r = try #require(result)
         #expect(r[0].username == "user")

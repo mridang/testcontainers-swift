@@ -8,8 +8,9 @@
 /// is responsible for cleaning up orphaned testcontainers resources after the
 /// test process exits.
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// A Docker container managed by testcontainers-swift.
@@ -40,7 +41,7 @@ public class DockerContainer: WaitStrategyTarget {
     private var _ports: [Int: Int?] = [:]
     private var _volumes: [String: MountConfig] = [:]
     private var _tmpfs: [String: String] = [:]
-    private var _command: Any? // String or [String]
+    private var _command: Any?  // String or [String]
     private var _name: String?
     private var _network: Network?
     private var _networkAliases: [String]?
@@ -388,7 +389,8 @@ public class DockerContainer: WaitStrategyTarget {
         do {
             let details = try await _dockerClient.containerDetails(id)
             if let state = details["State"] as? [String: Any],
-               let s = state["Status"] as? String {
+                let s = state["Status"] as? String
+            {
                 _cachedStatus = s
             }
             _cachedContainerInfo = nil
@@ -481,7 +483,10 @@ public class DockerContainer: WaitStrategyTarget {
             } else if ch == "\"" {
                 inDouble = true
             } else if ch == " " || ch == "\t" {
-                if !current.isEmpty { result.append(current); current = "" }
+                if !current.isEmpty {
+                    result.append(current)
+                    current = ""
+                }
             } else {
                 current.append(ch)
             }

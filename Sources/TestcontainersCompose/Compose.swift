@@ -57,14 +57,15 @@ public struct PublishedPortModel {
         var normalizedUrl = url
         if let ssh = dockerHostHostname() {
             if url == "0.0.0.0" || url == "127.0.0.1" || url == "localhost"
-                || url == "::" || url == "::1" {
+                || url == "::" || url == "::1"
+            {
                 normalizedUrl = ssh
             }
         } else {
             #if os(Windows)
-            if url == "0.0.0.0" {
-                normalizedUrl = "127.0.0.1"
-            }
+                if url == "0.0.0.0" {
+                    normalizedUrl = "127.0.0.1"
+                }
             #endif
         }
         guard normalizedUrl != url else { return self }
@@ -420,7 +421,8 @@ public class DockerCompose {
         if !interpolate { cmd += ["--no-interpolate"] }
         let result = try _runCommand(cmd)
         guard let data = result.stdout.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
             throw ComposeError.parseError("Failed to parse docker compose config output")
         }
         return json
@@ -444,7 +446,8 @@ public class DockerCompose {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
             guard let data = trimmed.data(using: .utf8),
-                  let decoded = try? JSONSerialization.jsonObject(with: data) else {
+                let decoded = try? JSONSerialization.jsonObject(with: data)
+            else {
                 fputs("testcontainers: ignoring unparseable line from docker compose ps: \(trimmed)\n", stderr)
                 continue
             }
@@ -521,7 +524,8 @@ public class DockerCompose {
                 guard let u = URL(string: url) else { break }
                 let (_, response) = try await URLSession.shared.data(from: u)
                 if let http = response as? HTTPURLResponse,
-                   http.statusCode >= 200 && http.statusCode < 300 {
+                    http.statusCode >= 200 && http.statusCode < 300
+                {
                     return self
                 }
             } catch {}

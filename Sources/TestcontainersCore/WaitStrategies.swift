@@ -2,8 +2,9 @@
 ///
 /// All 8 strategies are 1:1 ports of the Dart/Python implementations.
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 // MARK: - 1. LogMessageWaitStrategy
@@ -28,7 +29,8 @@ public final class LogMessageWaitStrategy: WaitStrategy {
         times: Int = 1,
         predicateStreamsAnd: Bool = false
     ) {
-        self.pattern = (try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]))
+        self.pattern =
+            (try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]))
             ?? NSRegularExpression()
         self.times = times
         self.predicateStreamsAnd = predicateStreamsAnd
@@ -143,11 +145,14 @@ public final class HttpWaitStrategy: WaitStrategy {
     }
 
     @discardableResult public func usingTls(insecure: Bool = false) -> Self {
-        _useTls = true; _insecureTls = insecure; return self
+        _useTls = true
+        _insecureTls = insecure
+        return self
     }
 
     @discardableResult public func withHeader(_ name: String, _ value: String) -> Self {
-        _headers[name] = value; return self
+        _headers[name] = value
+        return self
     }
 
     @discardableResult public func withBasicCredentials(_ user: String, _ password: String) -> Self {
@@ -157,11 +162,13 @@ public final class HttpWaitStrategy: WaitStrategy {
     }
 
     @discardableResult public func withMethod(_ m: String) -> Self {
-        _method = m.uppercased(); return self
+        _method = m.uppercased()
+        return self
     }
 
     @discardableResult public func withBody(_ b: String) -> Self {
-        _body = b; return self
+        _body = b
+        return self
     }
 
     /// The current set of HTTP headers that will be sent with each probe request.
@@ -232,7 +239,8 @@ private final class InsecureTLSDelegate: NSObject, URLSessionDelegate {
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
         if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-           let trust = challenge.protectionSpace.serverTrust {
+            let trust = challenge.protectionSpace.serverTrust
+        {
             completionHandler(.useCredential, URLCredential(trust: trust))
         } else {
             completionHandler(.performDefaultHandling, nil)
@@ -270,7 +278,7 @@ public final class HealthcheckWaitStrategy: WaitStrategy {
                 let logs = String(data: combined, encoding: .utf8) ?? ""
                 throw WaitStrategyError.unhealthy("Container is unhealthy. Logs: \(logs)")
             }
-            return false // "starting" — keep waiting
+            return false  // "starting" — keep waiting
         }
 
         if !ready {
@@ -505,7 +513,10 @@ private enum TCPProbe {
 
 // MARK: - Timeout helper
 
-private func withTimeout<T: Sendable>(_ duration: Duration, _ work: @escaping @Sendable () async throws -> T) async throws -> T {
+private func withTimeout<T: Sendable>(
+    _ duration: Duration,
+    _ work: @escaping @Sendable () async throws -> T
+) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask { try await work() }
         group.addTask {

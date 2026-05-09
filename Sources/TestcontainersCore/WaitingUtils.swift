@@ -132,7 +132,8 @@ open class WaitStrategy {
             } catch is StopPollingError {
                 return false
             } catch {
-                let isTransient = allTransient.contains { type(of: error) == $0 }
+                let isTransient =
+                    allTransient.contains { type(of: error) == $0 }
                     || error is URLError
                     || error is CancellationError
                 if !isTransient { throw error }

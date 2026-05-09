@@ -71,8 +71,8 @@ public func overriddenConnectionMode() throws -> ConnectionMode? {
     let val = ProcessInfo.processInfo.environment["TESTCONTAINERS_CONNECTION_MODE"] ?? ""
     guard !val.isEmpty else { return nil }
     switch val {
-    case "bridge_ip":   return .bridgeIp
-    case "gateway_ip":  return .gatewayIp
+    case "bridge_ip": return .bridgeIp
+    case "gateway_ip": return .gatewayIp
     case "docker_host": return .dockerHost
     default:
         throw ConfigurationError.invalidConnectionMode(val)
@@ -211,7 +211,10 @@ public class TestcontainersConfiguration: @unchecked Sendable {
     /// Controlled by `TESTCONTAINERS_RYUK_PRIVILEGED` or `ryuk.container.privileged`.
     /// Default: `false`.
     public var ryukPrivileged: Bool {
-        get { _ryukPrivileged ?? resolveFlag(envName: "TESTCONTAINERS_RYUK_PRIVILEGED", propName: "ryuk.container.privileged") }
+        get {
+            _ryukPrivileged
+                ?? resolveFlag(envName: "TESTCONTAINERS_RYUK_PRIVILEGED", propName: "ryuk.container.privileged")
+        }
         set { _ryukPrivileged = newValue }
     }
 

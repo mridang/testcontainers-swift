@@ -9,8 +9,9 @@ import AsyncHTTPClient
 import Foundation
 import NIOCore
 import NIOHTTP1
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// Describes a volume or bind mount to attach to a container.
@@ -92,7 +93,8 @@ public class DockerClient: @unchecked Sendable {
     ) {
         self._socketPath = socketPath
         if let tcp = tcpHost ?? Self.tcpDockerHost() {
-            let normalized = tcp
+            let normalized =
+                tcp
                 .replacingOccurrences(of: "tcp://", with: "http://")
                 .replacingOccurrences(of: "ssh://", with: "http://")
             self.baseURL = normalized
@@ -126,7 +128,7 @@ public class DockerClient: @unchecked Sendable {
 
     private static func tcpDockerHost() -> String? {
         guard let h = ProcessInfo.processInfo.environment["DOCKER_HOST"],
-              h.hasPrefix("tcp://") || h.hasPrefix("http://")
+            h.hasPrefix("tcp://") || h.hasPrefix("http://")
         else { return nil }
         return h
     }
@@ -311,19 +313,24 @@ public class DockerClient: @unchecked Sendable {
         if let netName = network, let aliases = networkAliases, !aliases.isEmpty {
             body["NetworkingConfig"] = [
                 "EndpointsConfig": [
-                    netName: ["Aliases": aliases],
-                ],
+                    netName: ["Aliases": aliases]
+                ]
             ]
         } else if let netName = network {
             body["NetworkingConfig"] = [
-                "EndpointsConfig": [netName: [:] as [String: Any]],
+                "EndpointsConfig": [netName: [:] as [String: Any]]
             ]
         }
 
         var query: [String: String] = [:]
         if let n = name { query["name"] = n }
 
-        let (statusCode, respBody) = try await request(method: .POST, path: "/v1.41/containers/create", query: query, body: body)
+        let (statusCode, respBody) = try await request(
+            method: .POST,
+            path: "/v1.41/containers/create",
+            query: query,
+            body: body
+        )
         guard statusCode == 201 else {
             throw DockerClientError.apiError(statusCode, String(data: respBody, encoding: .utf8) ?? "")
         }
@@ -400,9 +407,10 @@ public class DockerClient: @unchecked Sendable {
         let ports = networkSettings?["Ports"] as? [String: Any]
         let key = "\(port)/tcp"
         if let bindings = ports?[key] as? [[String: String]],
-           let first = bindings.first,
-           let hostPortStr = first["HostPort"],
-           let hostPort = Int(hostPortStr) {
+            let first = bindings.first,
+            let hostPortStr = first["HostPort"],
+            let hostPort = Int(hostPortStr)
+        {
             return hostPort
         }
         throw DockerClientError.portNotFound(port)
@@ -412,8 +420,9 @@ public class DockerClient: @unchecked Sendable {
     public func containers(all: Bool = false, filters: [String: Any]? = nil) async throws -> [[String: Any]] {
         var query: [String: String] = ["all": all ? "true" : "false"]
         if let f = filters,
-           let data = try? JSONSerialization.data(withJSONObject: f),
-           let str = String(data: data, encoding: .utf8) {
+            let data = try? JSONSerialization.data(withJSONObject: f),
+            let str = String(data: data, encoding: .utf8)
+        {
             query["filters"] = str
         }
         let (statusCode, body) = try await request(method: .GET, path: "/v1.41/containers/json", query: query)
@@ -523,7 +532,9 @@ public class DockerClient: @unchecked Sendable {
             "Cmd": command,
         ]
         let (createStatus, createRespBody) = try await request(
-            method: .POST, path: "/v1.41/containers/\(id)/exec", body: createBody
+            method: .POST,
+            path: "/v1.41/containers/\(id)/exec",
+            body: createBody
         )
         guard createStatus == 201 else {
             throw DockerClientError.apiError(createStatus, String(data: createRespBody, encoding: .utf8) ?? "")
@@ -535,14 +546,17 @@ public class DockerClient: @unchecked Sendable {
 
         let startBody: [String: Any] = ["Detach": false, "Tty": false]
         let (startStatus, output) = try await request(
-            method: .POST, path: "/v1.41/exec/\(execId)/start", body: startBody
+            method: .POST,
+            path: "/v1.41/exec/\(execId)/start",
+            body: startBody
         )
         guard startStatus == 200 else {
             throw DockerClientError.apiError(startStatus, String(data: output, encoding: .utf8) ?? "")
         }
 
         let (inspectStatus, inspectBody) = try await request(
-            method: .GET, path: "/v1.41/exec/\(execId)/json"
+            method: .GET,
+            path: "/v1.41/exec/\(execId)/json"
         )
         guard inspectStatus == 200 else {
             throw DockerClientError.apiError(inspectStatus, String(data: inspectBody, encoding: .utf8) ?? "")
@@ -665,10 +679,12 @@ public class DockerClient: @unchecked Sendable {
         for line in responseText.components(separatedBy: "\n") {
             guard !line.isEmpty else { continue }
             if let lineData = line.data(using: .utf8),
-               let parsed = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] {
+                let parsed = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any]
+            {
                 buildLogs.append(parsed)
                 if let aux = parsed["aux"] as? [String: Any],
-                   let idStr = aux["ID"] as? String {
+                    let idStr = aux["ID"] as? String
+                {
                     imageId = idStr
                 }
             }
@@ -683,7 +699,8 @@ public class DockerClient: @unchecked Sendable {
         var result = Data()
         var pos = 0
         while pos + 8 <= data.count {
-            let size = Int(data[pos + 4]) << 24
+            let size =
+                Int(data[pos + 4]) << 24
                 | Int(data[pos + 5]) << 16
                 | Int(data[pos + 6]) << 8
                 | Int(data[pos + 7])
@@ -729,7 +746,7 @@ public class DockerClient: @unchecked Sendable {
             pos = lineEnd + 2
             if pos + size > data.count { break }
             result.append(data[pos..<pos + size])
-            pos += size + 2 // skip trailing CRLF
+            pos += size + 2  // skip trailing CRLF
         }
         return result
     }
@@ -755,7 +772,8 @@ public class DockerClient: @unchecked Sendable {
 
         let bodyStartOffset = bytes.count - (raw.count - raw.distance(from: raw.startIndex, to: headerEnd.upperBound))
         let bodyBytes = bodyStartOffset <= bytes.count ? bytes[bodyStartOffset...] : Data()
-        let bodyData = responseHeaders["transfer-encoding"] == "chunked"
+        let bodyData =
+            responseHeaders["transfer-encoding"] == "chunked"
             ? _decodeChunked(Data(bodyBytes))
             : Data(bodyBytes)
 

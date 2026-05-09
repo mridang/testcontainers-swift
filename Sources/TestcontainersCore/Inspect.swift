@@ -16,8 +16,10 @@ public struct ContainerLog: Codable {
     public let output: String?
 
     enum CodingKeys: String, CodingKey {
-        case start = "Start"; case end = "End"
-        case exitCode = "ExitCode"; case output = "Output"
+        case start = "Start"
+        case end = "End"
+        case exitCode = "ExitCode"
+        case output = "Output"
     }
 }
 
@@ -28,7 +30,9 @@ public struct ContainerHealth: Codable {
     public let log: [ContainerLog]?
 
     enum CodingKeys: String, CodingKey {
-        case status = "Status"; case failingStreak = "FailingStreak"; case log = "Log"
+        case status = "Status"
+        case failingStreak = "FailingStreak"
+        case log = "Log"
     }
 }
 
@@ -48,10 +52,18 @@ public struct ContainerState: Codable {
     public let health: ContainerHealth?
 
     enum CodingKeys: String, CodingKey {
-        case status = "Status"; case running = "Running"; case paused = "Paused"
-        case restarting = "Restarting"; case oomKilled = "OOMKilled"; case dead = "Dead"
-        case pid = "Pid"; case exitCode = "ExitCode"; case error = "Error"
-        case startedAt = "StartedAt"; case finishedAt = "FinishedAt"; case health = "Health"
+        case status = "Status"
+        case running = "Running"
+        case paused = "Paused"
+        case restarting = "Restarting"
+        case oomKilled = "OOMKilled"
+        case dead = "Dead"
+        case pid = "Pid"
+        case exitCode = "ExitCode"
+        case error = "Error"
+        case startedAt = "StartedAt"
+        case finishedAt = "FinishedAt"
+        case health = "Health"
     }
 }
 
@@ -64,8 +76,11 @@ public struct ContainerPlatform: Codable {
     public let variant: String?
 
     enum CodingKeys: String, CodingKey {
-        case os = "Os"; case osVersion = "OsVersion"; case osFeatures = "OsFeatures"
-        case architecture = "Architecture"; case variant = "Variant"
+        case os = "Os"
+        case osVersion = "OsVersion"
+        case osFeatures = "OsFeatures"
+        case architecture = "Architecture"
+        case variant = "Variant"
     }
 }
 
@@ -77,8 +92,10 @@ public struct ContainerImageManifestDescriptor: Codable {
     public let platform: ContainerPlatform?
 
     enum CodingKeys: String, CodingKey {
-        case mediaType = "MediaType"; case digest = "Digest"
-        case size = "Size"; case platform = "Platform"
+        case mediaType = "MediaType"
+        case digest = "Digest"
+        case size = "Size"
+        case platform = "Platform"
     }
 }
 
@@ -88,7 +105,8 @@ public struct ContainerBlkioWeightDevice: Codable {
     public let weight: Int?
 
     enum CodingKeys: String, CodingKey {
-        case path = "Path"; case weight = "Weight"
+        case path = "Path"
+        case weight = "Weight"
     }
 }
 
@@ -98,7 +116,8 @@ public struct ContainerBlkioDeviceRate: Codable {
     public let rate: Int?
 
     enum CodingKeys: String, CodingKey {
-        case path = "Path"; case rate = "Rate"
+        case path = "Path"
+        case rate = "Rate"
     }
 }
 
@@ -109,7 +128,8 @@ public struct ContainerDeviceMapping: Codable {
     public let cgroupPermissions: String?
 
     enum CodingKeys: String, CodingKey {
-        case pathOnHost = "PathOnHost"; case pathInContainer = "PathInContainer"
+        case pathOnHost = "PathOnHost"
+        case pathInContainer = "PathInContainer"
         case cgroupPermissions = "CgroupPermissions"
     }
 }
@@ -123,8 +143,11 @@ public struct ContainerDeviceRequest: Codable {
     public let options: [String: String]?
 
     enum CodingKeys: String, CodingKey {
-        case driver = "Driver"; case count = "Count"; case deviceIDs = "DeviceIDs"
-        case capabilities = "Capabilities"; case options = "Options"
+        case driver = "Driver"
+        case count = "Count"
+        case deviceIDs = "DeviceIDs"
+        case capabilities = "Capabilities"
+        case options = "Options"
     }
 }
 
@@ -135,7 +158,9 @@ public struct ContainerUlimit: Codable {
     public let hard: Int?
 
     enum CodingKeys: String, CodingKey {
-        case name = "Name"; case soft = "Soft"; case hard = "Hard"
+        case name = "Name"
+        case soft = "Soft"
+        case hard = "Hard"
     }
 }
 
@@ -145,7 +170,8 @@ public struct ContainerLogConfig: Codable {
     public let config: [String: String]?
 
     enum CodingKeys: String, CodingKey {
-        case type = "Type"; case config = "Config"
+        case type = "Type"
+        case config = "Config"
     }
 }
 
@@ -155,7 +181,8 @@ public struct ContainerPortBinding: Codable {
     public let hostPort: String?
 
     enum CodingKeys: String, CodingKey {
-        case hostIp = "HostIp"; case hostPort = "HostPort"
+        case hostIp = "HostIp"
+        case hostPort = "HostPort"
     }
 }
 
@@ -165,7 +192,8 @@ public struct ContainerRestartPolicy: Codable {
     public let maximumRetryCount: Int?
 
     enum CodingKeys: String, CodingKey {
-        case name = "Name"; case maximumRetryCount = "MaximumRetryCount"
+        case name = "Name"
+        case maximumRetryCount = "MaximumRetryCount"
     }
 }
 
@@ -178,7 +206,8 @@ public struct ContainerBindOptions: Codable {
     public let readOnlyForceRecursive: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case propagation = "Propagation"; case nonRecursive = "NonRecursive"
+        case propagation = "Propagation"
+        case nonRecursive = "NonRecursive"
         case createMountpoint = "CreateMountpoint"
         case readOnlyNonRecursive = "ReadOnlyNonRecursive"
         case readOnlyForceRecursive = "ReadOnlyForceRecursive"
@@ -191,7 +220,8 @@ public struct ContainerVolumeDriverConfig: Codable {
     public let options: [String: String]?
 
     enum CodingKeys: String, CodingKey {
-        case name = "Name"; case options = "Options"
+        case name = "Name"
+        case options = "Options"
     }
 }
 
@@ -203,8 +233,10 @@ public struct ContainerVolumeOptions: Codable {
     public let subpath: String?
 
     enum CodingKeys: String, CodingKey {
-        case noCopy = "NoCopy"; case labels = "Labels"
-        case driverConfig = "DriverConfig"; case subpath = "Subpath"
+        case noCopy = "NoCopy"
+        case labels = "Labels"
+        case driverConfig = "DriverConfig"
+        case subpath = "Subpath"
     }
 }
 
@@ -224,7 +256,9 @@ public struct ContainerTmpfsOptions: Codable {
     public let options: [[String]]?
 
     enum CodingKeys: String, CodingKey {
-        case sizeBytes = "SizeBytes"; case mode = "Mode"; case options = "Options"
+        case sizeBytes = "SizeBytes"
+        case mode = "Mode"
+        case options = "Options"
     }
 }
 
@@ -241,10 +275,15 @@ public struct ContainerMountPoint: Codable {
     public let imageOptions: ContainerImageOptions?
 
     enum CodingKeys: String, CodingKey {
-        case type = "Type"; case source = "Source"; case target = "Target"
-        case readOnly = "ReadOnly"; case consistency = "Consistency"
-        case bindOptions = "BindOptions"; case volumeOptions = "VolumeOptions"
-        case tmpfsOptions = "TmpfsOptions"; case imageOptions = "ImageOptions"
+        case type = "Type"
+        case source = "Source"
+        case target = "Target"
+        case readOnly = "ReadOnly"
+        case consistency = "Consistency"
+        case bindOptions = "BindOptions"
+        case volumeOptions = "VolumeOptions"
+        case tmpfsOptions = "TmpfsOptions"
+        case imageOptions = "ImageOptions"
     }
 }
 
@@ -320,43 +359,74 @@ public struct ContainerHostConfig: Codable {
     public let readonlyPaths: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case binds = "Binds"; case containerIDFile = "ContainerIDFile"
-        case logConfig = "LogConfig"; case networkMode = "NetworkMode"
-        case portBindings = "PortBindings"; case restartPolicy = "RestartPolicy"
-        case autoRemove = "AutoRemove"; case volumeDriver = "VolumeDriver"
-        case volumesFrom = "VolumesFrom"; case mounts = "Mounts"
-        case consoleSize = "ConsoleSize"; case annotations = "Annotations"
-        case capAdd = "CapAdd"; case capDrop = "CapDrop"
-        case cgroupnsMode = "CgroupnsMode"; case dns = "Dns"
-        case dnsOptions = "DnsOptions"; case dnsSearch = "DnsSearch"
-        case extraHosts = "ExtraHosts"; case groupAdd = "GroupAdd"
-        case ipcMode = "IpcMode"; case cgroup = "Cgroup"
-        case links = "Links"; case oomScoreAdj = "OomScoreAdj"
-        case pidMode = "PidMode"; case privileged = "Privileged"
-        case publishAllPorts = "PublishAllPorts"; case readonlyRootfs = "ReadonlyRootfs"
-        case securityOpt = "SecurityOpt"; case storageOpt = "StorageOpt"
-        case tmpfs = "Tmpfs"; case utsMode = "UTSMode"
-        case usernsMode = "UsernsMode"; case shmSize = "ShmSize"
-        case sysctls = "Sysctls"; case runtime = "Runtime"
-        case isolation = "Isolation"; case cpuShares = "CpuShares"
-        case memory = "Memory"; case nanoCpus = "NanoCpus"
-        case cgroupParent = "CgroupParent"; case blkioWeight = "BlkioWeight"
+        case binds = "Binds"
+        case containerIDFile = "ContainerIDFile"
+        case logConfig = "LogConfig"
+        case networkMode = "NetworkMode"
+        case portBindings = "PortBindings"
+        case restartPolicy = "RestartPolicy"
+        case autoRemove = "AutoRemove"
+        case volumeDriver = "VolumeDriver"
+        case volumesFrom = "VolumesFrom"
+        case mounts = "Mounts"
+        case consoleSize = "ConsoleSize"
+        case annotations = "Annotations"
+        case capAdd = "CapAdd"
+        case capDrop = "CapDrop"
+        case cgroupnsMode = "CgroupnsMode"
+        case dns = "Dns"
+        case dnsOptions = "DnsOptions"
+        case dnsSearch = "DnsSearch"
+        case extraHosts = "ExtraHosts"
+        case groupAdd = "GroupAdd"
+        case ipcMode = "IpcMode"
+        case cgroup = "Cgroup"
+        case links = "Links"
+        case oomScoreAdj = "OomScoreAdj"
+        case pidMode = "PidMode"
+        case privileged = "Privileged"
+        case publishAllPorts = "PublishAllPorts"
+        case readonlyRootfs = "ReadonlyRootfs"
+        case securityOpt = "SecurityOpt"
+        case storageOpt = "StorageOpt"
+        case tmpfs = "Tmpfs"
+        case utsMode = "UTSMode"
+        case usernsMode = "UsernsMode"
+        case shmSize = "ShmSize"
+        case sysctls = "Sysctls"
+        case runtime = "Runtime"
+        case isolation = "Isolation"
+        case cpuShares = "CpuShares"
+        case memory = "Memory"
+        case nanoCpus = "NanoCpus"
+        case cgroupParent = "CgroupParent"
+        case blkioWeight = "BlkioWeight"
         case blkioWeightDevice = "BlkioWeightDevice"
         case blkioDeviceReadBps = "BlkioDeviceReadBps"
         case blkioDeviceWriteBps = "BlkioDeviceWriteBps"
         case blkioDeviceReadIOps = "BlkioDeviceReadIOps"
         case blkioDeviceWriteIOps = "BlkioDeviceWriteIOps"
-        case cpuPeriod = "CpuPeriod"; case cpuQuota = "CpuQuota"
-        case cpuRealtimePeriod = "CpuRealtimePeriod"; case cpuRealtimeRuntime = "CpuRealtimeRuntime"
-        case cpusetCpus = "CpusetCpus"; case cpusetMems = "CpusetMems"
-        case devices = "Devices"; case deviceCgroupRules = "DeviceCgroupRules"
+        case cpuPeriod = "CpuPeriod"
+        case cpuQuota = "CpuQuota"
+        case cpuRealtimePeriod = "CpuRealtimePeriod"
+        case cpuRealtimeRuntime = "CpuRealtimeRuntime"
+        case cpusetCpus = "CpusetCpus"
+        case cpusetMems = "CpusetMems"
+        case devices = "Devices"
+        case deviceCgroupRules = "DeviceCgroupRules"
         case deviceRequests = "DeviceRequests"
-        case memoryReservation = "MemoryReservation"; case memorySwap = "MemorySwap"
-        case memorySwappiness = "MemorySwappiness"; case oomKillDisable = "OomKillDisable"
-        case pidsLimit = "PidsLimit"; case ulimits = "Ulimits"
-        case cpuCount = "CpuCount"; case cpuPercent = "CpuPercent"
-        case ioMaximumIOps = "IOMaximumIOps"; case ioMaximumBandwidth = "IOMaximumBandwidth"
-        case maskedPaths = "MaskedPaths"; case readonlyPaths = "ReadonlyPaths"
+        case memoryReservation = "MemoryReservation"
+        case memorySwap = "MemorySwap"
+        case memorySwappiness = "MemorySwappiness"
+        case oomKillDisable = "OomKillDisable"
+        case pidsLimit = "PidsLimit"
+        case ulimits = "Ulimits"
+        case cpuCount = "CpuCount"
+        case cpuPercent = "CpuPercent"
+        case ioMaximumIOps = "IOMaximumIOps"
+        case ioMaximumBandwidth = "IOMaximumBandwidth"
+        case maskedPaths = "MaskedPaths"
+        case readonlyPaths = "ReadonlyPaths"
     }
 }
 
@@ -366,7 +436,8 @@ public struct ContainerGraphDriver: Codable {
     public let data: [String: String]?
 
     enum CodingKeys: String, CodingKey {
-        case name = "Name"; case data = "Data"
+        case name = "Name"
+        case data = "Data"
     }
 }
 
@@ -382,9 +453,14 @@ public struct ContainerMount: Codable {
     public let propagation: String?
 
     enum CodingKeys: String, CodingKey {
-        case type = "Type"; case name = "Name"; case source = "Source"
-        case destination = "Destination"; case driver = "Driver"
-        case mode = "Mode"; case rw = "RW"; case propagation = "Propagation"
+        case type = "Type"
+        case name = "Name"
+        case source = "Source"
+        case destination = "Destination"
+        case driver = "Driver"
+        case mode = "Mode"
+        case rw = "RW"
+        case propagation = "Propagation"
     }
 }
 
@@ -398,8 +474,11 @@ public struct ContainerHealthcheck: Codable {
     public let startInterval: Int?
 
     enum CodingKeys: String, CodingKey {
-        case test = "Test"; case interval = "Interval"; case timeout = "Timeout"
-        case retries = "Retries"; case startPeriod = "StartPeriod"
+        case test = "Test"
+        case interval = "Interval"
+        case timeout = "Timeout"
+        case retries = "Retries"
+        case startPeriod = "StartPeriod"
         case startInterval = "StartInterval"
     }
 }
@@ -433,16 +512,31 @@ public struct ContainerConfig: Codable {
     public let shell: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case hostname = "Hostname"; case domainname = "Domainname"; case user = "User"
-        case attachStdin = "AttachStdin"; case attachStdout = "AttachStdout"
-        case attachStderr = "AttachStderr"; case exposedPorts = "ExposedPorts"
-        case tty = "Tty"; case openStdin = "OpenStdin"; case stdinOnce = "StdinOnce"
-        case env = "Env"; case cmd = "Cmd"; case healthcheck = "Healthcheck"
-        case argsEscaped = "ArgsEscaped"; case image = "Image"; case volumes = "Volumes"
-        case workingDir = "WorkingDir"; case entrypoint = "Entrypoint"
-        case networkDisabled = "NetworkDisabled"; case macAddress = "MacAddress"
-        case onBuild = "OnBuild"; case labels = "Labels"; case stopSignal = "StopSignal"
-        case stopTimeout = "StopTimeout"; case shell = "Shell"
+        case hostname = "Hostname"
+        case domainname = "Domainname"
+        case user = "User"
+        case attachStdin = "AttachStdin"
+        case attachStdout = "AttachStdout"
+        case attachStderr = "AttachStderr"
+        case exposedPorts = "ExposedPorts"
+        case tty = "Tty"
+        case openStdin = "OpenStdin"
+        case stdinOnce = "StdinOnce"
+        case env = "Env"
+        case cmd = "Cmd"
+        case healthcheck = "Healthcheck"
+        case argsEscaped = "ArgsEscaped"
+        case image = "Image"
+        case volumes = "Volumes"
+        case workingDir = "WorkingDir"
+        case entrypoint = "Entrypoint"
+        case networkDisabled = "NetworkDisabled"
+        case macAddress = "MacAddress"
+        case onBuild = "OnBuild"
+        case labels = "Labels"
+        case stopSignal = "StopSignal"
+        case stopTimeout = "StopTimeout"
+        case shell = "Shell"
     }
 }
 
@@ -453,7 +547,8 @@ public struct ContainerIPAMConfig: Codable {
     public let linkLocalIPs: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case ipv4Address = "IPv4Address"; case ipv6Address = "IPv6Address"
+        case ipv4Address = "IPv4Address"
+        case ipv6Address = "IPv6Address"
         case linkLocalIPs = "LinkLocalIPs"
     }
 }
@@ -476,12 +571,19 @@ public struct ContainerNetworkEndpoint: Codable {
     public let dnsNames: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case ipamConfig = "IPAMConfig"; case links = "Links"; case aliases = "Aliases"
-        case macAddress = "MacAddress"; case networkID = "NetworkID"
-        case endpointID = "EndpointID"; case gateway = "Gateway"
-        case ipAddress = "IPAddress"; case ipPrefixLen = "IPPrefixLen"
-        case ipv6Gateway = "IPv6Gateway"; case globalIPv6Address = "GlobalIPv6Address"
-        case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"; case driverOpts = "DriverOpts"
+        case ipamConfig = "IPAMConfig"
+        case links = "Links"
+        case aliases = "Aliases"
+        case macAddress = "MacAddress"
+        case networkID = "NetworkID"
+        case endpointID = "EndpointID"
+        case gateway = "Gateway"
+        case ipAddress = "IPAddress"
+        case ipPrefixLen = "IPPrefixLen"
+        case ipv6Gateway = "IPv6Gateway"
+        case globalIPv6Address = "GlobalIPv6Address"
+        case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"
+        case driverOpts = "DriverOpts"
         case dnsNames = "DNSNames"
     }
 }
@@ -492,7 +594,8 @@ public struct ContainerAddress: Codable {
     public let prefixLen: Int?
 
     enum CodingKeys: String, CodingKey {
-        case addr = "Addr"; case prefixLen = "PrefixLen"
+        case addr = "Addr"
+        case prefixLen = "PrefixLen"
     }
 }
 
@@ -516,15 +619,22 @@ public struct ContainerNetworkSettings: Codable {
     public let gateway: String?
 
     enum CodingKeys: String, CodingKey {
-        case bridge = "Bridge"; case sandboxID = "SandboxID"; case sandboxKey = "SandboxKey"
+        case bridge = "Bridge"
+        case sandboxID = "SandboxID"
+        case sandboxKey = "SandboxKey"
         case hairpinMode = "HairpinMode"
         case linkLocalIPv6Address = "LinkLocalIPv6Address"
         case linkLocalIPv6PrefixLen = "LinkLocalIPv6PrefixLen"
-        case ports = "Ports"; case portMapping = "PortMapping"
-        case ipAddress = "IPAddress"; case ipPrefixLen = "IPPrefixLen"
-        case ipv6Gateway = "IPv6Gateway"; case macAddress = "MacAddress"
-        case networks = "Networks"; case globalIPv6Address = "GlobalIPv6Address"
-        case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"; case gateway = "Gateway"
+        case ports = "Ports"
+        case portMapping = "PortMapping"
+        case ipAddress = "IPAddress"
+        case ipPrefixLen = "IPPrefixLen"
+        case ipv6Gateway = "IPv6Gateway"
+        case macAddress = "MacAddress"
+        case networks = "Networks"
+        case globalIPv6Address = "GlobalIPv6Address"
+        case globalIPv6PrefixLen = "GlobalIPv6PrefixLen"
+        case gateway = "Gateway"
     }
 
     /// Returns the networks map, or `nil` if absent.
@@ -560,16 +670,30 @@ public struct ContainerInspectInfo: Codable {
     public let networkSettings: ContainerNetworkSettings?
 
     enum CodingKeys: String, CodingKey {
-        case id = "Id"; case created = "Created"; case path = "Path"; case args = "Args"
-        case state = "State"; case image = "Image"
-        case resolvConfPath = "ResolvConfPath"; case hostnamePath = "HostnamePath"
-        case hostsPath = "HostsPath"; case logPath = "LogPath"; case name = "Name"
-        case restartCount = "RestartCount"; case driver = "Driver"; case platform = "Platform"
-        case mountLabel = "MountLabel"; case processLabel = "ProcessLabel"
-        case appArmorProfile = "AppArmorProfile"; case execIDs = "ExecIDs"
-        case hostConfig = "HostConfig"; case graphDriver = "GraphDriver"
-        case sizeRw = "SizeRw"; case sizeRootFs = "SizeRootFs"
-        case mounts = "Mounts"; case config = "Config"
+        case id = "Id"
+        case created = "Created"
+        case path = "Path"
+        case args = "Args"
+        case state = "State"
+        case image = "Image"
+        case resolvConfPath = "ResolvConfPath"
+        case hostnamePath = "HostnamePath"
+        case hostsPath = "HostsPath"
+        case logPath = "LogPath"
+        case name = "Name"
+        case restartCount = "RestartCount"
+        case driver = "Driver"
+        case platform = "Platform"
+        case mountLabel = "MountLabel"
+        case processLabel = "ProcessLabel"
+        case appArmorProfile = "AppArmorProfile"
+        case execIDs = "ExecIDs"
+        case hostConfig = "HostConfig"
+        case graphDriver = "GraphDriver"
+        case sizeRw = "SizeRw"
+        case sizeRootFs = "SizeRootFs"
+        case mounts = "Mounts"
+        case config = "Config"
         case networkSettings = "NetworkSettings"
     }
 

@@ -113,21 +113,21 @@ private func tarEntry(name: String, data: Data, mode: Int) -> Data {
     // Trim leading slash from name
     let entryName = name.hasPrefix("/") ? String(name.dropFirst()) : name
 
-    write(entryName, at: 0, maxLength: 100)           // name
-    writeOctal(mode, at: 100, length: 8)              // mode
-    writeOctal(0, at: 108, length: 8)                 // uid
-    writeOctal(0, at: 116, length: 8)                 // gid
-    writeOctal(data.count, at: 124, length: 12)       // size
+    write(entryName, at: 0, maxLength: 100)  // name
+    writeOctal(mode, at: 100, length: 8)  // mode
+    writeOctal(0, at: 108, length: 8)  // uid
+    writeOctal(0, at: 116, length: 8)  // gid
+    writeOctal(data.count, at: 124, length: 12)  // size
     writeOctal(Int(Date().timeIntervalSince1970), at: 136, length: 12)  // mtime
-    header[156] = UInt8(ascii: "0")                   // typeflag: regular file
-    write("ustar", at: 257, maxLength: 6)             // magic
-    write("00", at: 263, maxLength: 2)                // version
+    header[156] = UInt8(ascii: "0")  // typeflag: regular file
+    write("ustar", at: 257, maxLength: 6)  // magic
+    write("00", at: 263, maxLength: 2)  // version
 
     // Checksum: sum of all header bytes with checksum field treated as spaces.
-    for i in 148..<156 { header[i] = 32 } // spaces for checksum field
+    for i in 148..<156 { header[i] = 32 }  // spaces for checksum field
     let checksum = header.reduce(0) { $0 + Int($1) }
     writeOctal(checksum, at: 148, length: 7)
-    header[155] = 32 // trailing space after checksum
+    header[155] = 32  // trailing space after checksum
 
     // Data padded to multiple of 512.
     var entry = header
@@ -139,8 +139,8 @@ private func tarEntry(name: String, data: Data, mode: Int) -> Data {
     return entry
 }
 
-private extension String {
-    func leftPadded(toLength length: Int, with character: Character) -> String {
+extension String {
+    fileprivate func leftPadded(toLength length: Int, with character: Character) -> String {
         let padCount = max(0, length - self.count)
         return String(repeating: character, count: padCount) + self
     }

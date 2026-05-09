@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import TestcontainersCore
 
 @Suite("ContainerInspectInfo decoding")
@@ -39,15 +40,15 @@ struct InspectTests {
                     "Gateway": "172.17.0.1",
                     "IPAddress": "172.17.0.2",
                     "IPPrefixLen": 16,
-                ] as [String: Any],
+                ] as [String: Any]
             ] as [String: Any],
         ] as [String: Any],
         "HostConfig": [
             "NetworkMode": "bridge",
             "PortBindings": [
                 "80/tcp": [
-                    ["HostIp": "0.0.0.0", "HostPort": "32768"],
-                ],
+                    ["HostIp": "0.0.0.0", "HostPort": "32768"]
+                ]
             ] as [String: Any],
         ] as [String: Any],
         "Mounts": [] as [Any],
@@ -140,7 +141,7 @@ struct ContainerHealthTests {
             "Status": "unhealthy",
             "FailingStreak": 3,
             "Log": [
-                ["Start": "2024-01-01T00:00:00Z", "End": "2024-01-01T00:00:01Z", "ExitCode": 1, "Output": "error"],
+                ["Start": "2024-01-01T00:00:00Z", "End": "2024-01-01T00:00:01Z", "ExitCode": 1, "Output": "error"]
             ] as [Any],
         ]
         let data = try JSONSerialization.data(withJSONObject: dict)

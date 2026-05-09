@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import TestcontainersCore
 
 @Suite("DockerContainer builder")
@@ -185,7 +186,11 @@ struct SplitCommandTests {
     }
 
     @Test func handlesDoubleQuotedArgumentWithSpaces() {
-        #expect(DockerContainer.splitCommand(#"nginx -c "/etc/nginx/nginx.conf""#) == ["nginx", "-c", "/etc/nginx/nginx.conf"])
+        #expect(
+            DockerContainer.splitCommand(#"nginx -c "/etc/nginx/nginx.conf""#) == [
+                "nginx", "-c", "/etc/nginx/nginx.conf",
+            ]
+        )
     }
 
     @Test func handlesMultipleConsecutiveSpaces() {
@@ -236,7 +241,7 @@ struct ContainerPreStartTests {
 
     @Test func reloadCompletesWithoutErrorBeforeStart() async {
         let c = DockerContainer("alpine")
-        await c.reload() // should not crash
+        await c.reload()  // should not crash
     }
 
     @Test func statusReturnsNotStartedBeforeStart() {

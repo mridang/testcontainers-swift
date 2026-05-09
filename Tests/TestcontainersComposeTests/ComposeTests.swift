@@ -1,6 +1,7 @@
-import Testing
 import Foundation
 import TestcontainersCore
+import Testing
+
 @testable import TestcontainersCompose
 
 // MARK: - Helpers
@@ -150,7 +151,7 @@ struct ComposeUnitTests {
     @Test func publisherThrowsNoSuchPortWhenNoneMatch() throws {
         let container = ComposeContainer()
         container.publishers = [
-            PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp"),
+            PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
         ]
         #expect(throws: NoSuchPortExposed.self) {
             _ = try container.publisher(byPort: 9999)
@@ -160,7 +161,7 @@ struct ComposeUnitTests {
     @Test func publisherReturnsMatchingPublisher() throws {
         let container = ComposeContainer()
         container.publishers = [
-            PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp"),
+            PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
         ]
         let pub = try container.publisher(byPort: 80)
         #expect(pub.publishedPort == 8080)

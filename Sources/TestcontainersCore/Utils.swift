@@ -39,27 +39,27 @@ public func isArm() -> Bool {
 /// Returns `true` when the current platform is macOS.
 public func isMac() -> Bool {
     #if os(macOS)
-    return true
+        return true
     #else
-    return false
+        return false
     #endif
 }
 
 /// Returns `true` when the current platform is Linux.
 public func isLinux() -> Bool {
     #if os(Linux)
-    return true
+        return true
     #else
-    return false
+        return false
     #endif
 }
 
 /// Returns `true` when the current platform is Windows.
 public func isWindows() -> Bool {
     #if os(Windows)
-    return true
+        return true
     #else
-    return false
+        return false
     #endif
 }
 
@@ -97,7 +97,7 @@ func runProcess(_ executable: String, args: [String]) -> ProcessResult {
     process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     process.arguments = [executable] + args
     process.standardOutput = pipe
-    process.standardError = Pipe() // suppress stderr
+    process.standardError = Pipe()  // suppress stderr
 
     do {
         try process.run()
