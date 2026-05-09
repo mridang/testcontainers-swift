@@ -198,7 +198,7 @@ public class DockerClient: @unchecked Sendable {
             req.body = .bytes(ByteBuffer(bytes: data))
         } else if let raw = rawBody {
             req.headers.add(name: "Content-Length", value: "\(raw.count)")
-            req.body = .bytes(ByteBuffer(data: raw))
+            req.body = .bytes(ByteBuffer(bytes: raw))
         }
 
         for (k, v) in extraHeaders { req.headers.add(name: k, value: v) }
