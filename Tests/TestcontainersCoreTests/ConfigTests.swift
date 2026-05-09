@@ -4,50 +4,50 @@ import Testing
 
 @Suite("TestcontainersConfiguration defaults")
 struct ConfigDefaultsTests {
-    @Test func defaultMaxTriesIs120() {
-        let config = TestcontainersConfiguration()
+    @Test func defaultMaxTriesIs120() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.maxTries == 120)
     }
 
-    @Test func defaultSleepTimeIs1() {
-        let config = TestcontainersConfiguration()
+    @Test func defaultSleepTimeIs1() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.sleepTime == 1.0)
     }
 
-    @Test func defaultRyukImage() {
-        let config = TestcontainersConfiguration()
+    @Test func defaultRyukImage() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.ryukImage == "testcontainers/ryuk:0.8.1")
     }
 
-    @Test func timeoutIsMaxTriesTimesSleepTime() {
-        let config = TestcontainersConfiguration()
+    @Test func timeoutIsMaxTriesTimesSleepTime() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.timeout == Double(config.maxTries) * config.sleepTime)
     }
 
-    @Test func defaultRyukDisabledIsFalse() {
-        let config = TestcontainersConfiguration()
+    @Test func defaultRyukDisabledIsFalse() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.ryukDisabled == false)
     }
 
-    @Test func defaultRyukPrivilegedIsFalse() {
-        let config = TestcontainersConfiguration()
+    @Test func defaultRyukPrivilegedIsFalse() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.ryukPrivileged == false)
     }
 
-    @Test func ryukPrivilegedSetterWorks() {
-        let config = TestcontainersConfiguration()
+    @Test func ryukPrivilegedSetterWorks() throws {
+        let config = try TestcontainersConfiguration()
         config.ryukPrivileged = true
         #expect(config.ryukPrivileged == true)
     }
 
-    @Test func ryukDisabledSetterWorks() {
-        let config = TestcontainersConfiguration()
+    @Test func ryukDisabledSetterWorks() throws {
+        let config = try TestcontainersConfiguration()
         config.ryukDisabled = true
         #expect(config.ryukDisabled == true)
     }
 
-    @Test func defaultRyukReconnectionTimeout() {
-        let config = TestcontainersConfiguration()
+    @Test func defaultRyukReconnectionTimeout() throws {
+        let config = try TestcontainersConfiguration()
         #expect(config.ryukReconnectionTimeout == "10s")
     }
 }
@@ -71,14 +71,14 @@ struct DockerSocketTests {
 
 @Suite("tcHost")
 struct TcHostTests {
-    @Test func returnsTcHostFromProperties() {
-        let config = TestcontainersConfiguration()
+    @Test func returnsTcHostFromProperties() throws {
+        let config = try TestcontainersConfiguration()
         config.tcProperties["tc.host"] = "some_value"
         #expect(config.tcHost == "some_value")
     }
 
-    @Test func returnsNilWhenAbsent() {
-        let config = TestcontainersConfiguration()
+    @Test func returnsNilWhenAbsent() throws {
+        let config = try TestcontainersConfiguration()
         config.tcProperties.removeValue(forKey: "tc.host")
         #expect(config.tcHost == nil)
     }

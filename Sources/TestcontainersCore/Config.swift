@@ -131,19 +131,33 @@ public class TestcontainersConfiguration: @unchecked Sendable {
 
     /// Creates a configuration object by reading from environment variables
     /// and `~/.testcontainers.properties`.
-    public init() {
+    ///
+    /// Throws `ConfigurationError.invalidInt` when `TC_MAX_TRIES` is set to a
+    /// non-integer value, or `ConfigurationError.invalidDouble` when
+    /// `TC_POOLING_INTERVAL` is set to a non-numeric value — matching the
+    /// `ArgumentError` thrown by the Dart port on bad configuration values.
+    public init() throws {
         let env = ProcessInfo.processInfo.environment
         let props = readTcProperties()
         self.tcProperties = props
 
-        self.maxTries = {
-            let raw = env["TC_MAX_TRIES"] ?? "120"
-            return Int(raw) ?? 120
-        }()
-        self.sleepTime = {
-            let raw = env["TC_POOLING_INTERVAL"] ?? "1"
-            return Double(raw) ?? 1.0
-        }()
+        let maxTriesRaw = env["TC_MAX_TRIES"] ?? ""
+        if maxTriesRaw.isEmpty {
+            self.maxTries = 120
+        } else if let v = Int(maxTriesRaw) {
+            self.maxTries = v
+        } else {
+            throw ConfigurationError.invalidInt("TC_MAX_TRIES", maxTriesRaw)
+        }
+
+        let sleepRaw = env["TC_POOLING_INTERVAL"] ?? ""
+        if sleepRaw.isEmpty {
+            self.sleepTime = 1.0
+        } else if let v = Double(sleepRaw) {
+            self.sleepTime = v
+        } else {
+            throw ConfigurationError.invalidDouble("TC_POOLING_INTERVAL", sleepRaw)
+        }
         self.ryukImage = env["RYUK_CONTAINER_IMAGE"] ?? "testcontainers/ryuk:0.8.1"
         self.ryukReconnectionTimeout = env["RYUK_RECONNECTION_TIMEOUT"] ?? "10s"
         self.tcHostOverride = env["TC_HOST"] ?? env["TESTCONTAINERS_HOST_OVERRIDE"]
@@ -241,4 +255,8 @@ public class TestcontainersConfiguration: @unchecked Sendable {
 /// Constructed once at module initialisation. All library internals read their
 /// defaults from this object. You can mutate individual fields to influence
 /// behaviour without restarting the process.
-public let testcontainersConfig = TestcontainersConfiguration()
+///
+/// Crashes with a `ConfigurationError` message when an environment variable
+/// (e.g. `TC_MAX_TRIES`) holds a value that cannot be parsed — matching the
+/// `ArgumentError` thrown by the Dart port on misconfiguration.
+public let testcontainersConfig = try! TestcontainersConfiguration()
