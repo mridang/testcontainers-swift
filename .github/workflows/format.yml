@@ -2,19 +2,31 @@ name: Format Code (swift-format)
 
 on: push
 
+defaults:
+  run:
+    working-directory: ./
+
 permissions:
   contents: write
 
 jobs:
-  format:
+  code-formatting:
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: swift-actions/setup-swift@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
         with:
           swift-version: "6.1"
-      - run: swift format --recursive --in-place Sources Tests
-      - uses: stefanzweifel/git-auto-commit-action@v5
+
+      - name: Apply swift-format
+        run: swift format --recursive --in-place Sources Tests
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: Apply swift-format
           commit_options: '--no-verify'

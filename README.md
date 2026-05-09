@@ -4,6 +4,13 @@ A Swift port of [testcontainers-python](https://github.com/testcontainers/testco
 
 Testcontainers is a library that supports tests that need throwaway instances of real Docker containers — databases, message brokers, web servers, and more.
 
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `TestcontainersCore` | Core container management, wait strategies, Docker client |
+| `TestcontainersCompose` | Docker Compose orchestration support |
+
 ## Installation
 
 Add to your `Package.swift`:
@@ -69,6 +76,28 @@ try await DockerCompose.use(
 | `ContainerStatusWaitStrategy` | Wait for the container status to be `running` |
 | `CompositeWaitStrategy` | Run multiple strategies in sequence |
 | `ExecWaitStrategy` | Wait for a command to exit with a given code |
+
+## Prerequisites
+
+- Swift 6.1 or later
+- Docker Desktop or Docker Engine
+- [devbox](https://www.jetpack.io/devbox) (for local development)
+
+## Development
+
+```bash
+devbox shell
+
+devbox run build            # swift build
+devbox run test             # swift test (all tests)
+devbox run test:unit        # unit tests only (no Docker)
+devbox run test:integration # integration tests (requires Docker)
+devbox run lint             # swiftlint lint --strict
+devbox run lint:fix         # swiftlint --fix
+devbox run format           # swift format --in-place
+devbox run format:check     # swift format --dry-run
+devbox run doc              # generate documentation
+```
 
 ## License
 

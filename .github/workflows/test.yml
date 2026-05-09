@@ -2,14 +2,20 @@ name: Run Tests (swift test)
 
 on: push
 
+defaults:
+  run:
+    working-directory: ./
+
 permissions:
   contents: write
 
 jobs:
   app-testing:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Cache Docker layers
         uses: actions/cache@v4
@@ -30,7 +36,8 @@ jobs:
             docker image save alpine:latest nginx:alpine-slim -o docker_images/combined_images.tar
           fi
 
-      - uses: swift-actions/setup-swift@v2
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
         with:
           swift-version: "6.1"
 
@@ -42,8 +49,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - run: swift build
-      - run: swift test
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
 
       - name: Generate coverage
         if: always()

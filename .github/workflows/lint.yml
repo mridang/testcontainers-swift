@@ -2,18 +2,27 @@ name: Lint Code (swiftlint)
 
 on: push
 
+defaults:
+  run:
+    working-directory: ./
+
 permissions:
   contents: write
 
 jobs:
-  lint:
+  code-linting:
+    name: Lint code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Install SwiftLint
         run: |
           curl -sSL "https://github.com/realm/SwiftLint/releases/download/0.58.2/swiftlint_linux.zip" -o /tmp/sl.zip
           unzip -q /tmp/sl.zip -d /tmp/sl
           sudo install -m 755 /tmp/sl/swiftlint /usr/local/bin/
           swiftlint version
-      - run: swiftlint lint --strict Sources Tests
+
+      - name: Run SwiftLint
+        run: swiftlint lint --strict Sources Tests

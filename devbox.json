@@ -1,6 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.0/.schema/devbox.schema.json",
-  "packages": ["swift@latest", "docker@latest", "swiftlint@latest"],
+  "packages": [
+    "swift@latest",
+    "docker@latest",
+    "swiftlint@latest"
+  ],
   "shell": {
     "scripts": {
       "build":            "swift build",
@@ -10,7 +14,8 @@
       "lint":             "swiftlint lint --strict Sources Tests",
       "lint:fix":         "swiftlint --fix Sources Tests",
       "format":           "swift format --recursive --in-place Sources Tests",
-      "format:check":     "swift format --recursive --dry-run Sources Tests"
+      "format:check":     "swift format --recursive --dry-run Sources Tests",
+      "doc":              "swift package generate-documentation"
     }
   }
 }

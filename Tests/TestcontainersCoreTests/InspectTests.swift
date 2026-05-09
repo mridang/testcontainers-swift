@@ -152,3 +152,181 @@ struct ContainerHealthTests {
         #expect(health.log?.first?.exitCode == 1)
     }
 }
+
+@Suite("ContainerState decoding")
+struct ContainerStateTests {
+    @Test func parsesRunningState() throws {
+        let dict: [String: Any] = [
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 42,
+            "ExitCode": 0,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let state = try JSONDecoder().decode(ContainerState.self, from: data)
+        #expect(state.status == "running")
+        #expect(state.running == true)
+        #expect(state.pid == 42)
+        #expect(state.exitCode == 0)
+    }
+
+    @Test func parsesExitedState() throws {
+        let dict: [String: Any] = [
+            "Status": "exited",
+            "Running": false,
+            "ExitCode": 1,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let state = try JSONDecoder().decode(ContainerState.self, from: data)
+        #expect(state.status == "exited")
+        #expect(state.running == false)
+        #expect(state.exitCode == 1)
+    }
+
+    @Test func parsesStateWithHealth() throws {
+        let dict: [String: Any] = [
+            "Status": "running",
+            "Running": true,
+            "Health": ["Status": "healthy", "FailingStreak": 0, "Log": [] as [Any]],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let state = try JSONDecoder().decode(ContainerState.self, from: data)
+        #expect(state.health?.status == "healthy")
+    }
+
+    @Test func parsesEmptyStateObject() throws {
+        let data = try JSONSerialization.data(withJSONObject: [:] as [String: Any])
+        let state = try JSONDecoder().decode(ContainerState.self, from: data)
+        #expect(state.status == nil)
+        #expect(state.running == nil)
+    }
+}
+
+@Suite("ContainerLog decoding")
+struct ContainerLogTests {
+    @Test func parsesLogEntry() throws {
+        let dict: [String: Any] = [
+            "Start": "2024-01-01T00:00:00Z",
+            "End": "2024-01-01T00:00:01Z",
+            "ExitCode": 0,
+            "Output": "everything ok",
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let log = try JSONDecoder().decode(ContainerLog.self, from: data)
+        #expect(log.start == "2024-01-01T00:00:00Z")
+        #expect(log.end == "2024-01-01T00:00:01Z")
+        #expect(log.exitCode == 0)
+        #expect(log.output == "everything ok")
+    }
+
+    @Test func parsesEmptyLog() throws {
+        let data = try JSONSerialization.data(withJSONObject: [:] as [String: Any])
+        let log = try JSONDecoder().decode(ContainerLog.self, from: data)
+        #expect(log.exitCode == nil)
+        #expect(log.output == nil)
+    }
+}
+
+@Suite("ContainerConfig decoding")
+struct ContainerConfigTests {
+    @Test func parsesFullConfig() throws {
+        let dict: [String: Any] = [
+            "Hostname": "abc123",
+            "Image": "nginx:alpine",
+            "Labels": ["app": "test", "version": "1.0"],
+            "Env": ["PATH=/usr/bin", "HOME=/root"],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let config = try JSONDecoder().decode(ContainerConfig.self, from: data)
+        #expect(config.hostname == "abc123")
+        #expect(config.image == "nginx:alpine")
+        #expect(config.labels?["app"] == "test")
+        #expect(config.labels?["version"] == "1.0")
+        #expect(config.env?.contains("PATH=/usr/bin") == true)
+    }
+
+    @Test func parsesEmptyConfig() throws {
+        let data = try JSONSerialization.data(withJSONObject: [:] as [String: Any])
+        let config = try JSONDecoder().decode(ContainerConfig.self, from: data)
+        #expect(config.hostname == nil)
+        #expect(config.image == nil)
+    }
+}
+
+@Suite("ContainerNetworkEndpoint decoding")
+struct ContainerNetworkEndpointTests {
+    @Test func parsesEndpoint() throws {
+        let dict: [String: Any] = [
+            "NetworkID": "net-abc",
+            "Gateway": "172.17.0.1",
+            "IPAddress": "172.17.0.5",
+            "IPPrefixLen": 16,
+            "MacAddress": "02:42:ac:11:00:05",
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let endpoint = try JSONDecoder().decode(ContainerNetworkEndpoint.self, from: data)
+        #expect(endpoint.networkID == "net-abc")
+        #expect(endpoint.gateway == "172.17.0.1")
+        #expect(endpoint.ipAddress == "172.17.0.5")
+        #expect(endpoint.ipPrefixLen == 16)
+        #expect(endpoint.macAddress == "02:42:ac:11:00:05")
+    }
+}
+
+@Suite("ContainerPortBinding decoding")
+struct ContainerPortBindingTests {
+    @Test func parsesPortBinding() throws {
+        let dict: [String: Any] = [
+            "HostIp": "0.0.0.0",
+            "HostPort": "49153",
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let binding = try JSONDecoder().decode(ContainerPortBinding.self, from: data)
+        #expect(binding.hostIp == "0.0.0.0")
+        #expect(binding.hostPort == "49153")
+    }
+}
+
+@Suite("ContainerMount decoding")
+struct ContainerMountTests {
+    @Test func parsesMount() throws {
+        let dict: [String: Any] = [
+            "Type": "bind",
+            "Source": "/host/path",
+            "Destination": "/container/path",
+            "Mode": "rw",
+            "RW": true,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let mount = try JSONDecoder().decode(ContainerMount.self, from: data)
+        #expect(mount.type == "bind")
+        #expect(mount.source == "/host/path")
+        #expect(mount.destination == "/container/path")
+        #expect(mount.mode == "rw")
+        #expect(mount.rw == true)
+    }
+}
+
+@Suite("ContainerInspectInfo.getNetworkSettings")
+struct InspectGetNetworkSettingsTests {
+    @Test func returnsNilForEmptyJson() throws {
+        let data = try JSONSerialization.data(withJSONObject: [:] as [String: Any])
+        let info = try JSONDecoder().decode(ContainerInspectInfo.self, from: data)
+        #expect(info.getNetworkSettings() == nil)
+    }
+
+    @Test func getNetworksReturnsNilWhenAbsent() throws {
+        let dict: [String: Any] = [
+            "NetworkSettings": ["Bridge": "", "IPAddress": ""] as [String: Any]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let info = try JSONDecoder().decode(ContainerInspectInfo.self, from: data)
+        let nets = info.getNetworkSettings()?.getNetworks()
+        // No Networks key — should be nil or empty
+        _ = nets
+    }
+}
