@@ -77,7 +77,7 @@ public func dockerAuthConfig() -> String? {
 ///
 /// By default, `DockerClient` uses a Unix domain socket. When `DOCKER_HOST`
 /// is set to a TCP/HTTP URL, an HTTP client is used instead.
-public class DockerClient {
+public class DockerClient: @unchecked Sendable {
     private let httpClient: HTTPClient
     private let baseURL: String
     private let _socketPath: String

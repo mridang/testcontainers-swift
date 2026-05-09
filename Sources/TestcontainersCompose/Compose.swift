@@ -8,7 +8,7 @@ import Foundation
 import TestcontainersCore
 
 // One-shot deprecation warning for config — printed on the first call only.
-private var _getConfigWarningPrinted = false
+private nonisolated(unsafe) var _getConfigWarningPrinted = false
 
 private let _configExperimentalWarning =
     "get_config is experimental, see testcontainers/testcontainers-python#669"

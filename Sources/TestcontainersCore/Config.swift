@@ -127,7 +127,7 @@ public enum ConfigurationError: Error, CustomStringConvertible {
 /// Values are read from environment variables at construction time and can be
 /// overridden programmatically (useful in tests). The global singleton
 /// `testcontainersConfig` is the authoritative source used throughout the library.
-public class TestcontainersConfiguration {
+public class TestcontainersConfiguration: @unchecked Sendable {
 
     /// Creates a configuration object by reading from environment variables
     /// and `~/.testcontainers.properties`.

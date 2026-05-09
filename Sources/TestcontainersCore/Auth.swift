@@ -22,8 +22,9 @@ public struct DockerAuthInfo {
 }
 
 // One-shot warning flags — printed to stderr the first time the key is seen.
-private var credHelpersWarning: String? = "DOCKER_AUTH_CONFIG is experimental, credHelpers not supported yet"
-private var credsStoreWarning: String? = "DOCKER_AUTH_CONFIG is experimental, credsStore not supported yet"
+// nonisolated(unsafe) because these are only written during single-threaded init.
+private nonisolated(unsafe) var credHelpersWarning: String? = "DOCKER_AUTH_CONFIG is experimental, credHelpers not supported yet"
+private nonisolated(unsafe) var credsStoreWarning: String? = "DOCKER_AUTH_CONFIG is experimental, credsStore not supported yet"
 
 /// Parses a JSON Docker `config.json`-style auth configuration string.
 ///
