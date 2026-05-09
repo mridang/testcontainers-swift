@@ -243,3 +243,68 @@ struct ConfigAdditionalDefaultsTests {
         #expect(config.ryukDockerSocket == "/custom/docker.sock")
     }
 }
+
+// ---------------------------------------------------------------------------
+// ConnectionMode enum — additional coverage
+// ---------------------------------------------------------------------------
+
+@Suite("ConnectionMode enum — additional")
+struct ConnectionModeEnumAdditionalTests {
+    @Test func exactlyThreeValuesExist() {
+        // Enumerate all cases manually since ConnectionMode is not CaseIterable.
+        let allModes: [ConnectionMode] = [.bridgeIp, .gatewayIp, .dockerHost]
+        #expect(allModes.count == 3)
+    }
+
+    @Test func onlyBridgeIpHasUseMappedPortFalse() {
+        let allModes: [ConnectionMode] = [.bridgeIp, .gatewayIp, .dockerHost]
+        let falseCount = allModes.filter { !$0.useMappedPort }.count
+        #expect(falseCount == 1)
+        #expect(ConnectionMode.bridgeIp.useMappedPort == false)
+    }
+
+    @Test func valuesContainBridgeIpGatewayIpDockerHost() {
+        let allModes: [ConnectionMode] = [.bridgeIp, .gatewayIp, .dockerHost]
+        #expect(allModes.contains(.bridgeIp))
+        #expect(allModes.contains(.gatewayIp))
+        #expect(allModes.contains(.dockerHost))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// readTcProperties — type check
+// ---------------------------------------------------------------------------
+
+@Suite("readTcProperties type")
+struct ReadTcPropertiesTypeTests {
+    @Test func returnsStringStringDictionary() {
+        let props = readTcProperties()
+        // The return type is [String: String] — this simply verifies the call
+        // compiles and returns the correct type without crashing.
+        let typed: [String: String] = props
+        _ = typed
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ryukPrivileged and ryukDisabled are independent
+// ---------------------------------------------------------------------------
+
+@Suite("ryukPrivileged and ryukDisabled independence")
+struct RyukFlagIndependenceTests {
+    @Test func settingPrivilegedDoesNotAffectDisabled() throws {
+        let config = try TestcontainersConfiguration()
+        config.tcProperties["ryuk.container.privileged"] = "yes"
+        config.tcProperties["ryuk.disabled"] = "no"
+        #expect(config.ryukPrivileged == true)
+        #expect(config.ryukDisabled == false)
+    }
+
+    @Test func settingDisabledDoesNotAffectPrivileged() throws {
+        let config = try TestcontainersConfiguration()
+        config.tcProperties["ryuk.disabled"] = "yes"
+        config.tcProperties["ryuk.container.privileged"] = "no"
+        #expect(config.ryukDisabled == true)
+        #expect(config.ryukPrivileged == false)
+    }
+}

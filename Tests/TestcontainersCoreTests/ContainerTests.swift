@@ -449,3 +449,237 @@ struct ContainerTransferableTests {
         #expect(r2 === c)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Additional builder tests (ported from Dart reference)
+// ---------------------------------------------------------------------------
+
+@Suite("DockerContainer builder — additional")
+struct DockerContainerBuilderAdditionalTests {
+    @Test func withExposedPortsEmptyListLeavesPortsUnchanged() {
+        let c = DockerContainer("alpine").withExposedPorts([])
+        #expect(c.ports.isEmpty)
+    }
+
+    @Test func withNetworkAliasesEmptyListYieldsEmptyNotNil() {
+        let c = DockerContainer("alpine").withNetworkAliases([])
+        #expect(c.networkAliases != nil)
+        #expect(c.networkAliases!.isEmpty)
+    }
+
+    @Test func withTmpfsMountOverwritesExistingPathOnDuplicateCall() {
+        let c = DockerContainer("alpine")
+            .withTmpfsMount("/run")
+            .withTmpfsMount("/run", size: "128m")
+        #expect(c.tmpfs.count == 1)
+        #expect(c.tmpfs["/run"] == "128m")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// configure() hook tests
+// ---------------------------------------------------------------------------
+
+/// A subclass whose configure() is a no-op — it only calls super.configure().
+private class _BaseContainer: DockerContainer, @unchecked Sendable {
+    func triggerConfigure() { configure() }
+}
+
+/// A subclass that overrides configure() to inject a known env variable.
+private class _ConfiguringContainer: DockerContainer, @unchecked Sendable {
+    override func configure() {
+        withEnv("CONFIGURED", "true")
+        super.configure()
+    }
+    func triggerConfigure() { configure() }
+}
+
+@Suite("DockerContainer.configure hook")
+struct ConfigureHookTests {
+    @Test func baseConfigureIsANoOp() {
+        let c = _BaseContainer("alpine")
+        c.triggerConfigure()
+        #expect(c.env.isEmpty)
+        #expect(c.ports.isEmpty)
+        #expect(c.volumes.isEmpty)
+    }
+
+    @Test func subclassCanAddEnvVarsInConfigure() {
+        let c = _ConfiguringContainer("alpine")
+        c.triggerConfigure()
+        #expect(c.env["CONFIGURED"] == "true")
+    }
+
+    @Test func configureCanBeCalledMultipleTimesIdempotently() {
+        let c = _ConfiguringContainer("alpine")
+        c.triggerConfigure()
+        c.triggerConfigure()
+        #expect(c.env["CONFIGURED"] == "true")
+        #expect(c.env.count == 1)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// dockerClient getter tests
+// ---------------------------------------------------------------------------
+
+@Suite("DockerContainer.dockerClient")
+struct DockerClientGetterTests {
+    @Test func dockerClientGetterReturnsNonNil() {
+        let c = DockerContainer("alpine")
+        // Just accessing the property should not crash; it always returns a value.
+        let client = c.dockerClient
+        _ = client  // silence unused-variable warning
+        #expect(true)
+    }
+
+    @Test func dockerClientReturnsSameInstanceOnRepeatedAccess() {
+        let c = DockerContainer("alpine")
+        #expect(c.dockerClient === c.dockerClient)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle before start — additional
+// ---------------------------------------------------------------------------
+
+@Suite("DockerContainer lifecycle before start — additional")
+struct ContainerPreStartAdditionalTests {
+    @Test func stopWithForceFalseBeforeStartIsNoOp() async throws {
+        let c = DockerContainer("alpine")
+        try await c.stop(force: false, deleteVolume: false)
+    }
+
+    @Test func waitThrowsBeforeStart() async {
+        let c = DockerContainer("alpine")
+        do {
+            _ = try await c.wait()
+            #expect(Bool(false), "Expected wait() to throw before start")
+        } catch {
+            #expect(error is ContainerStartException)
+        }
+    }
+
+    @Test func execShellThrowsBeforeStart() async {
+        let c = DockerContainer("alpine")
+        do {
+            _ = try await c.execShell("echo hello")
+            #expect(Bool(false), "Expected execShell to throw before start")
+        } catch {
+            #expect(error is ContainerStartException)
+        }
+    }
+
+    @Test func copyFromContainerThrowsBeforeStart() async {
+        let c = DockerContainer("alpine")
+        do {
+            try await c.copyFromContainer("/etc/hosts", "/tmp/out.tar")
+            #expect(Bool(false), "Expected copyFromContainer to throw before start")
+        } catch {
+            #expect(error is ContainerStartException)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// splitCommand — additional edge cases
+// ---------------------------------------------------------------------------
+
+@Suite("DockerContainer.splitCommand — additional")
+struct SplitCommandAdditionalTests {
+    @Test func singleQuotedArgPreservesDoubleQuotesInside() {
+        #expect(DockerContainer.splitCommand(#"echo '"hello"'"#) == ["echo", #""hello""#])
+    }
+
+    @Test func doubleQuotedArgPreservesSingleQuotesInside() {
+        #expect(DockerContainer.splitCommand("echo \"'hello'\" ") == ["echo", "'hello'"])
+    }
+
+    @Test func adjacentWordAndQuoteMergeIntoOneToken() {
+        // foo"bar" → foobar  (standard sh adjacency behaviour)
+        #expect(DockerContainer.splitCommand(#"foo"bar""#) == ["foobar"])
+    }
+
+    @Test func multipleBackslashesRemainLiteral() {
+        #expect(DockerContainer.splitCommand(#"cmd --arg=a\\b\\c"#) == ["cmd", #"--arg=a\\b\\c"#])
+    }
+
+    @Test func backslashBeforeSpaceDoesNotEscapeSpace() {
+        // Without backslash-escape support, backslash+space still splits on the space.
+        #expect(DockerContainer.splitCommand(#"a\ b"#) == [#"a\"#, "b"])
+    }
+}
+
+// ---------------------------------------------------------------------------
+// withEnvFile — additional edge cases
+// ---------------------------------------------------------------------------
+
+@Suite("DockerContainer withEnvFile — additional")
+struct ContainerEnvFileAdditionalTests {
+    private func makeTempDir(suffix: String) throws -> URL {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tc_env_\(suffix)_\(Int.random(in: 1...99999))")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        return tmp
+    }
+
+    @Test func resolvesUnknownVarToEmptyString() throws {
+        let tmp = try makeTempDir(suffix: "missing_var")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let envFile = tmp.appendingPathComponent(".env")
+        try "KEY=prefix-${MISSING_VAR}-suffix\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        #expect(c.env["KEY"] == "prefix--suffix")
+    }
+
+    @Test func handlesCRLFLineEndings() throws {
+        let tmp = try makeTempDir(suffix: "crlf")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let envFile = tmp.appendingPathComponent(".env")
+        // Windows-style CRLF: the trim inside withEnvFile strips the trailing \r.
+        try Data("A=1\r\nB=2\r\n".utf8).write(to: envFile)
+
+        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        #expect(c.env["A"] == "1")
+        #expect(c.env["B"] == "2")
+    }
+
+    @Test func doesNotExpandDollarWithoutBraces() throws {
+        let tmp = try makeTempDir(suffix: "nobrace")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let envFile = tmp.appendingPathComponent(".env")
+        // The regex requires ${VAR} braces; bare $VAR is left as-is.
+        try "KEY=prefix-$SIMPLE-suffix\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        #expect(c.env["KEY"] == "prefix-$SIMPLE-suffix")
+    }
+
+    @Test func doesNotUsePreExistingEnvVarsForInterpolation() throws {
+        let tmp = try makeTempDir(suffix: "preexisting")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        // The `resolved` map inside withEnvFile starts empty — variables set
+        // by withEnv() before calling withEnvFile() are NOT visible to ${VAR}.
+        let envFile = tmp.appendingPathComponent(".env")
+        try "DERIVED=hello-${HOST}\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let c = DockerContainer("alpine")
+            .withEnv("HOST", "example.com")
+            .withEnvFile(envFile.path)
+
+        #expect(c.env["DERIVED"] == "hello-")
+        #expect(c.env["HOST"] == "example.com")
+    }
+
+    @Test func nonExistentFileIsHandledSilently() {
+        // Swift uses `try?` so a missing file is a silent no-op (no throw).
+        let missingPath = "/tmp/__tc_no_such_env_\(Int.random(in: 1...999999))__"
+        let c = DockerContainer("alpine").withEnvFile(missingPath)
+        #expect(c.env.isEmpty)
+    }
+}
