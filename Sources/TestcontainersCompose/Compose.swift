@@ -214,7 +214,7 @@ public class ComposeContainer: WaitStrategyTarget {
         guard let svc = service else {
             throw ComposeError.noReference("Service name not set on ComposeContainer")
         }
-        let (stdout, stderr) = compose.logs([svc])
+        let (stdout, stderr) = try compose.logs([svc])
         return (stdout: Data(stdout.utf8), stderr: Data(stderr.utf8))
     }
 
@@ -294,7 +294,7 @@ public class DockerCompose {
     public let quietBuild: Bool
 
     private var _waitStrategies: [String: WaitStrategy]?
-    internal lazy var _dockerClient: DockerClient = DockerClient()
+    internal let _dockerClient: DockerClient = DockerClient()
 
     // MARK: - Init
 
@@ -377,7 +377,7 @@ public class DockerCompose {
 
         if let strategies = _waitStrategies {
             for (serviceName, strategy) in strategies {
-                let target = try container(serviceName)
+                let target = try container(serviceName)  // throws ContainerIsNotRunning when not found
                 try await strategy.waitUntilReady(target: target)
             }
         }
@@ -404,9 +404,11 @@ public class DockerCompose {
     /// Returns log output for the specified services as `(stdout, stderr)`.
     ///
     /// When `services` is omitted, logs for all services are returned.
-    public func logs(_ services: [String]? = nil) -> (String, String) {
+    ///
+    /// Throws `ComposeError.processError` when the underlying command fails.
+    public func logs(_ services: [String]? = nil) throws -> (String, String) {
         let cmd = composeCommandProperty + ["logs"] + (services ?? [])
-        let result = _runCommandAllowingFailure(cmd)
+        let result = try _runCommand(cmd)
         return (result.stdout, result.stderr)
     }
 
@@ -441,10 +443,12 @@ public class DockerCompose {
     ///
     /// Each returned `ComposeContainer` has its `DockerCompose` back-reference
     /// set so that further operations (logs, inspect) work.
-    public func containers(includeAll: Bool = false) -> [ComposeContainer] {
+    ///
+    /// Throws `ComposeError.processError` when the underlying command fails.
+    public func containers(includeAll: Bool = false) throws -> [ComposeContainer] {
         var cmd = composeCommandProperty + ["ps", "--format", "json"]
         if includeAll { cmd += ["-a"] }
-        let result = _runCommandAllowingFailure(cmd)
+        let result = try _runCommand(cmd)
         let output = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         if output.isEmpty { return [] }
 
@@ -476,13 +480,13 @@ public class DockerCompose {
     /// - `serviceName` given — finds the container whose `service` matches.
     public func container(_ serviceName: String? = nil, includeAll: Bool = false) throws -> ComposeContainer {
         if let name = serviceName {
-            let matching = containers(includeAll: includeAll).filter { $0.service == name }
+            let matching = try containers(includeAll: includeAll).filter { $0.service == name }
             if matching.isEmpty {
                 throw ContainerIsNotRunning("\(name) is not running in the compose context")
             }
             return matching[0]
         } else {
-            let all = containers(includeAll: includeAll)
+            let all = try containers(includeAll: includeAll)
             if all.count != 1 {
                 throw ContainerIsNotRunning(
                     "get_container failed because no service_name given "
@@ -500,17 +504,22 @@ public class DockerCompose {
     ///
     /// Throws `ComposeError.noReference` when no service name can be determined.
     public func execInContainer(_ command: [String], serviceName: String? = nil) throws -> (String, String, Int) {
-        let resolvedService = serviceName ?? (try? container())?.service
-        guard let svc = resolvedService else {
-            throw ComposeError.noReference(
-                "Cannot exec: could not determine a service name. "
-                    + "Pass serviceName explicitly or ensure the stack has exactly one "
-                    + "running container whose service field is non-null."
-            )
+        let svc: String
+        if let name = serviceName {
+            svc = name
+        } else {
+            guard let resolved = try container().service else {
+                throw ComposeError.noReference(
+                    "Cannot exec: could not determine a service name. "
+                        + "Pass serviceName explicitly or ensure the stack has exactly one "
+                        + "running container whose service field is non-null."
+                )
+            }
+            svc = resolved
         }
         let cmd = composeCommandProperty + ["exec", "-T", svc] + command
-        let result = _runCommandAllowingFailure(cmd)
-        return (result.stdout, result.stderr, result.exitCode)
+        let result = try _runCommand(cmd)
+        return (result.stdout, result.stderr, 0)
     }
 
     /// Returns the host IP address bound to a service's published port.

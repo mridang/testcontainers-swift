@@ -521,7 +521,7 @@ public class DockerClient: @unchecked Sendable {
     /// Connects a container to a network.
     public func connectNetwork(_ networkId: String, _ containerId: String, aliases: [String]? = nil) async throws {
         var body: [String: Any] = ["Container": containerId]
-        if let a = aliases, !a.isEmpty {
+        if let a = aliases {
             body["EndpointConfig"] = ["Aliases": a]
         }
         let (statusCode, respBody) = try await request(
@@ -576,7 +576,7 @@ public class DockerClient: @unchecked Sendable {
         let inspectJson = try jsonObject(from: inspectBody)
         let exitCode = inspectJson["ExitCode"] as? Int ?? 0
 
-        return (exitCode: exitCode, output: _stripDockerLogHeaders(output))
+        return (exitCode: exitCode, output: output)
     }
 
     // MARK: - Inspect

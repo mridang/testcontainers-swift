@@ -202,7 +202,7 @@ struct ComposeIntegrationTests {
     @Test func composeStartStop() async throws {
         let compose = DockerCompose(context: fixture("basic"))
         try await compose.start()
-        let allContainers = compose.containers()
+        let allContainers = try compose.containers()
         #expect(!allContainers.isEmpty)
         try compose.stop()
     }
@@ -210,7 +210,7 @@ struct ComposeIntegrationTests {
     @Test func startStopMultiple() async throws {
         let compose = DockerCompose(context: fixture("basic_multiple"))
         try await compose.start()
-        let allContainers = compose.containers()
+        let allContainers = try compose.containers()
         #expect(allContainers.count >= 2)
         try compose.stop()
     }
@@ -222,7 +222,7 @@ struct ComposeIntegrationTests {
 
     @Test func composeLogs() async throws {
         try await DockerCompose.use(DockerCompose(context: fixture("basic"))) { compose in
-            let (stdout, stderr) = compose.logs()
+            let (stdout, stderr) = try compose.logs()
             #expect(!stdout.isEmpty || !stderr.isEmpty)
         }
     }
@@ -245,7 +245,7 @@ struct ComposeIntegrationTests {
 
     @Test func composeMultiplePorts() async throws {
         try await DockerCompose.use(DockerCompose(context: fixture("port_multiple"))) { compose in
-            let allContainers = compose.containers()
+            let allContainers = try compose.containers()
             #expect(!allContainers.isEmpty)
         }
     }
@@ -262,7 +262,7 @@ struct ComposeIntegrationTests {
 
     @Test func execInContainerMultiple() async throws {
         try await DockerCompose.use(DockerCompose(context: fixture("basic_multiple"))) { compose in
-            let allContainers = compose.containers()
+            let allContainers = try compose.containers()
             for container in allContainers {
                 if let svc = container.service {
                     let (_, _, exitCode) = try compose.execInContainer(["true"], serviceName: svc)
@@ -289,7 +289,7 @@ struct ComposeIntegrationTests {
                 profiles: [profile]
             )
             try await compose.start()
-            let allContainers = compose.containers()
+            let allContainers = try compose.containers()
             #expect(!allContainers.isEmpty)
             try compose.stop()
         }

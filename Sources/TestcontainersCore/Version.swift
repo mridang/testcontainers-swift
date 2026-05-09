@@ -76,6 +76,15 @@ public struct ComparableVersion: Comparable, Equatable, CustomStringConvertible 
         lhs.parts == rhs.parts
     }
 
+    /// Returns `true` when `lhs` equals the version represented by `rhs`.
+    ///
+    /// Returns `false` (rather than throwing) when `rhs` cannot be parsed —
+    /// consistent with Dart's `operator ==(Object other)` contract.
+    public static func == (lhs: ComparableVersion, rhs: String) -> Bool {
+        guard let rhsVer = try? ComparableVersion(rhs) else { return false }
+        return lhs == rhsVer
+    }
+
     // MARK: - String comparison overloads (mirrors Dart's operator <(Object other))
 
     /// Returns `true` when `lhs` is strictly less than the version represented by `rhs`.
