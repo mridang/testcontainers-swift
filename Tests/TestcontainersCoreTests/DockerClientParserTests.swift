@@ -10,7 +10,9 @@ import Testing
 private func makeLogFrame(stream: UInt8, payload: Data) -> Data {
     var frame = Data(count: 8)
     frame[0] = stream
-    frame[1] = 0; frame[2] = 0; frame[3] = 0
+    frame[1] = 0
+    frame[2] = 0
+    frame[3] = 0
     let size = UInt32(payload.count)
     frame[4] = UInt8((size >> 24) & 0xFF)
     frame[5] = UInt8((size >> 16) & 0xFF)
@@ -46,7 +48,8 @@ private func httpResponse(
         lines.append("Content-Length: \(body.utf8.count)")
     }
     for (k, v) in headers { lines.append("\(k): \(v)") }
-    lines.append(""); lines.append("")
+    lines.append("")
+    lines.append("")
     let header = lines.joined(separator: "\r\n")
     if chunked {
         let bodyChunked = makeChunkedBody(body)
