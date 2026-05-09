@@ -1,4 +1,4 @@
-.DS_Store
+# Swift / SPM
 /.build
 /Packages
 /*.xcodeproj
@@ -6,6 +6,22 @@ xcuserdata/
 DerivedData/
 .swiftpm/
 .netrc
+
+# Test output
 .out/
 coverage/
 *.lcov
+*.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker image cache (CI only)
+docker_images/

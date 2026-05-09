@@ -1,18 +1,35 @@
 version: 2
 updates:
-  - package-ecosystem: swift
-    directory: /
+  - package-ecosystem: 'swift'
+    directory: '/'
     schedule:
-      interval: weekly
+      interval: 'weekly'
     commit-message:
-      prefix: "chore(deps):"
+      prefix: 'chore(deps):'
+    open-pull-requests-limit: 10
     groups:
       spm-version-updates:
-        patterns: ["*"]
-        applies-to: version-updates
-  - package-ecosystem: github-actions
-    directory: /
+        patterns:
+          - '*'
+        applies-to: 'version-updates'
+      spm-security-updates:
+        patterns:
+          - '*'
+        applies-to: 'security-updates'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: weekly
+      interval: 'weekly'
     commit-message:
-      prefix: "chore(deps):"
+      prefix: 'chore(deps):'
+    open-pull-requests-limit: 10
+    groups:
+      actions-version-updates:
+        patterns:
+          - '*'
+        applies-to: 'version-updates'
+      actions-security-updates:
+        patterns:
+          - '*'
+        applies-to: 'security-updates'

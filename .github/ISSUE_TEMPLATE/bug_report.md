@@ -1,26 +1,27 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report errors and problems
 title: ''
 labels: bug
 assignees: ''
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Versions Used**
 
-**To reproduce**
-Steps to reproduce the behavior:
-1. ...
+<!-- Swift version, macOS/Linux version, Docker version, testcontainers-swift version -->
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Description**
 
-**Environment:**
- - Swift version: [e.g. 5.10]
- - macOS/Linux version:
- - Docker version:
- - testcontainers-swift version:
+<!-- A clear and concise description of the problem. -->
+
+**How to reproduce**
+
+<!-- Code, config and/or steps needed to reproduce the problem. -->
+
+**Possible Solution**
+
+<!--- Optional: only if you have suggestions on a fix/reason for the bug -->
 
 **Additional context**
-Add any other context about the problem here.
+
+<!-- Optional: any other context about the problem: log messages, screenshots, etc. -->

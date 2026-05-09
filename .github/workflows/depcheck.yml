@@ -1,17 +1,26 @@
 name: Dependency Check (dependabot)
 
-on:
-  pull_request:
-    paths:
-      - 'Package.swift'
-      - 'Package.resolved'
+on: push
 
 jobs:
   depcheck:
+    name: Check dependencies
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: swift-actions/setup-swift@v2
         with:
-          swift-version: "5.10"
-      - run: swift package resolve
+          swift-version: "6.1"
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Check outdated dependencies
+        run: swift package update --dry-run

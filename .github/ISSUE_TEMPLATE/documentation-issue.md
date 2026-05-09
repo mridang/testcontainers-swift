@@ -1,16 +1,12 @@
 ---
-name: Documentation issue
-about: Report an issue with the documentation
+name: Documentation Issue
+about: Missing, misleading or incomplete documentation issues
 title: ''
-labels: documentation
+labels: docs
 assignees: ''
 ---
 
-**Describe the documentation issue**
-A clear and concise description of what is wrong or missing in the documentation.
+**Documentation issue**
 
-**Location**
-Where is the documentation issue located? (URL or file path)
-
-**Suggested improvement**
-What should the documentation say instead?
+<!-- Before opening a new issue, please make sure you already checked -->
+<!-- our documentation. -->
