@@ -30,13 +30,19 @@ let package = Package(
         .testTarget(
             name: "TestcontainersCoreTests",
             dependencies: ["TestcontainersCore"],
-            path: "Tests/TestcontainersCoreTests"
+            path: "Tests/TestcontainersCoreTests",
+            swiftSettings: [
+                .swiftLanguageVersion(.v5)
+            ]
         ),
         .testTarget(
             name: "TestcontainersComposeTests",
             dependencies: ["TestcontainersCompose", "TestcontainersCore"],
             path: "Tests/TestcontainersComposeTests",
-            resources: [.copy("compose_fixtures")]
+            resources: [.copy("compose_fixtures")],
+            swiftSettings: [
+                .swiftLanguageVersion(.v5)
+            ]
         ),
     ]
 )

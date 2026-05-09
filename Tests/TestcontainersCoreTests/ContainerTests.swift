@@ -77,6 +77,20 @@ struct DockerContainerBuilderTests {
         #expect(c.volumes["/host/path"]?.mode == "rw")
     }
 
+    @Test func withVolumeMappingReadOnlyMode() {
+        let c = DockerContainer("alpine").withVolumeMapping("/data", "/data", "ro")
+        #expect(c.volumes["/data"]?.mode == "ro")
+    }
+
+    @Test func multipleVolumeMappingsAccumulate() {
+        let c = DockerContainer("alpine")
+            .withVolumeMapping("/a", "/container/a", "rw")
+            .withVolumeMapping("/b", "/container/b", "ro")
+        #expect(c.volumes.count == 2)
+        #expect(c.volumes["/a"]?.mode == "rw")
+        #expect(c.volumes["/b"]?.mode == "ro")
+    }
+
     @Test func withKwargsSetExtraKwargs() {
         let c = DockerContainer("alpine").withKwargs(["privileged": true])
         #expect(c.kwargs["privileged"] as? Bool == true)
@@ -261,6 +275,30 @@ struct ContainerPreStartTests {
         let info = try await c.containerInfo()
         #expect(info == nil)
     }
+
+    @Test func wrappedContainerReturnsSelf() {
+        let c = DockerContainer("alpine")
+        #expect(c.wrappedContainer === c)
+    }
+
+    @Test func execThrowsBeforeStart() async {
+        let c = DockerContainer("alpine")
+        await #expect(throws: ContainerStartException.self) {
+            _ = try await c.exec(["echo", "hello"])
+        }
+    }
+
+    @Test func exposedPortThrowsBeforeStart() async {
+        let c = DockerContainer("alpine")
+        await #expect(throws: (any Error).self) {
+            _ = try await c.exposedPort(8080)
+        }
+    }
+
+    @Test func stopBeforeStartCompletesWithoutError() async throws {
+        let c = DockerContainer("alpine")
+        try await c.stop()
+    }
 }
 
 @Suite("DockerContainer withEnvFile")
@@ -348,5 +386,66 @@ struct ContainerEnvFileTests {
 
         let c = DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["KEY"] == "value")
+    }
+
+    @Test func withOnlyCommentsProducesNoEnvVars() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tc_env_comments_\(Int.random(in: 1...99999))")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let envFile = tmp.appendingPathComponent(".env")
+        try "# comment 1\n# comment 2\n\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        #expect(c.env.isEmpty)
+    }
+
+    @Test func mergesWithPreExistingEnvVar() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tc_env_merge_\(Int.random(in: 1...99999))")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let envFile = tmp.appendingPathComponent(".env")
+        try "FROM_FILE=yes\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let c = DockerContainer("alpine")
+            .withEnv("FROM_CODE", "also")
+            .withEnvFile(envFile.path)
+        #expect(c.env["FROM_CODE"] == "also")
+        #expect(c.env["FROM_FILE"] == "yes")
+    }
+
+    @Test func fileVarOverwritesPreExistingKey() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tc_env_overwrite_\(Int.random(in: 1...99999))")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let envFile = tmp.appendingPathComponent(".env")
+        try "KEY=new\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let c = DockerContainer("alpine")
+            .withEnv("KEY", "old")
+            .withEnvFile(envFile.path)
+        #expect(c.env["KEY"] == "new")
+    }
+}
+
+@Suite("DockerContainer withCopyIntoContainer accumulation")
+struct ContainerTransferableTests {
+    @Test func singleSpecReturnsChainedInstance() {
+        let c = DockerContainer("alpine")
+        let result = c.withCopyIntoContainer(.bytes(Data([1, 2, 3])), "/app/file")
+        #expect(result === c)
+    }
+
+    @Test func multipleCallsReturnSameInstance() {
+        let c = DockerContainer("alpine")
+        let r1 = c.withCopyIntoContainer(.bytes(Data([1])), "/a")
+        let r2 = r1.withCopyIntoContainer(.bytes(Data([2])), "/b")
+        #expect(r1 === c)
+        #expect(r2 === c)
     }
 }

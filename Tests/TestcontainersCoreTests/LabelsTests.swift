@@ -99,6 +99,16 @@ struct LabelsTests {
             )
         }
     }
+
+    @Test func errorMessageMentionsReservedNamespace() {
+        do {
+            _ = try createLabels(image: "nginx:latest", labels: ["org.testcontainers.custom": "value"])
+            Issue.record("Expected error")
+        } catch {
+            let desc = String(describing: error)
+            #expect(desc.contains("org.testcontainers"))
+        }
+    }
 }
 
 @Suite("Label constants")

@@ -2,16 +2,15 @@ name: Run Tests (swift test)
 
 on: push
 
+permissions:
+  contents: write
+
 defaults:
   run:
     working-directory: ./
 
-permissions:
-  contents: write
-
 jobs:
   app-testing:
-    name: Run tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

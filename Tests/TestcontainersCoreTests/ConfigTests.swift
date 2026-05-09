@@ -205,7 +205,6 @@ struct ResolveFlagTests {
 struct ConfigAdditionalDefaultsTests {
     @Test func defaultHubImageNamePrefixIsEmpty() throws {
         let config = try TestcontainersConfiguration()
-        // Default is "" unless TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX is set
         if ProcessInfo.processInfo.environment["TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX"] == nil {
             #expect(config.hubImageNamePrefix == "")
         }
@@ -213,7 +212,6 @@ struct ConfigAdditionalDefaultsTests {
 
     @Test func dockerAuthConfigDefaultsToNilOrEnvValue() throws {
         let config = try TestcontainersConfiguration()
-        // Either nil or the value of DOCKER_AUTH_CONFIG
         let envVal = ProcessInfo.processInfo.environment["DOCKER_AUTH_CONFIG"]
         #expect(config.dockerAuthConfig == envVal)
     }
@@ -224,5 +222,24 @@ struct ConfigAdditionalDefaultsTests {
         let envOverride = ProcessInfo.processInfo.environment["TESTCONTAINERS_HOST_OVERRIDE"]
         let expected = envTcHost ?? envOverride
         #expect(config.tcHostOverride == expected)
+    }
+
+    @Test func connectionModeOverrideDefaultsToNil() throws {
+        // Without TESTCONTAINERS_CONNECTION_MODE set, the override should be nil
+        let config = try TestcontainersConfiguration()
+        if ProcessInfo.processInfo.environment["TESTCONTAINERS_CONNECTION_MODE"] == nil {
+            #expect(config.connectionModeOverride == nil)
+        }
+    }
+
+    @Test func ryukDockerSocketReturnsNonEmptyPath() throws {
+        let config = try TestcontainersConfiguration()
+        #expect(!config.ryukDockerSocket.isEmpty)
+    }
+
+    @Test func ryukDockerSocketSetterOverridesCachedValue() throws {
+        let config = try TestcontainersConfiguration()
+        config.ryukDockerSocket = "/custom/docker.sock"
+        #expect(config.ryukDockerSocket == "/custom/docker.sock")
     }
 }

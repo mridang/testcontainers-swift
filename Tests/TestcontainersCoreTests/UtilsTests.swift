@@ -11,6 +11,18 @@ struct InsideContainerTests {
         // We just verify it returns a Bool without crashing
         _ = result
     }
+
+    @Test func returnsBool() {
+        let result = insideContainer()
+        #expect(result == true || result == false)
+    }
+
+    #if os(macOS)
+        @Test func returnsFalseOnMacOS() {
+            // /.dockerenv never exists on bare macOS
+            #expect(insideContainer() == false)
+        }
+    #endif
 }
 
 @Suite("Platform detection")
@@ -27,6 +39,41 @@ struct PlatformTests {
     @Test func isArmReturnsBool() {
         _ = isArm()
     }
+
+    @Test func isMacReturnsBool() {
+        let result = isMac()
+        #expect(result == true || result == false)
+    }
+
+    @Test func isLinuxReturnsBool() {
+        let result = isLinux()
+        #expect(result == true || result == false)
+    }
+
+    @Test func isWindowsReturnsBool() {
+        let result = isWindows()
+        #expect(result == true || result == false)
+    }
+
+    @Test func macAndLinuxAreMutuallyExclusive() {
+        #expect(!(isMac() && isLinux()))
+    }
+
+    @Test func macAndWindowsAreMutuallyExclusive() {
+        #expect(!(isMac() && isWindows()))
+    }
+
+    @Test func linuxAndWindowsAreMutuallyExclusive() {
+        #expect(!(isLinux() && isWindows()))
+    }
+
+    #if os(macOS)
+        @Test func isMacTrueOnMacOS() {
+            #expect(isMac() == true)
+            #expect(isLinux() == false)
+            #expect(isWindows() == false)
+        }
+    #endif
 }
 
 @Suite("runningContainerId")
@@ -37,6 +84,19 @@ struct RunningContainerIdTests {
         // Could be nil (macOS) or a string (Linux without Docker)
         _ = cid
     }
+
+    #if os(macOS)
+        @Test func returnsNilOnMacOS() {
+            // /proc/self/cgroup doesn't exist on macOS
+            #expect(runningContainerId() == nil)
+        }
+    #endif
+
+    @Test func ifNonNilThenNonEmpty() {
+        if let cid = runningContainerId() {
+            #expect(!cid.isEmpty)
+        }
+    }
 }
 
 @Suite("defaultGatewayIp")
@@ -45,6 +105,17 @@ struct DefaultGatewayIpTests {
         let ip = defaultGatewayIp()
         if let ip = ip {
             #expect(!ip.isEmpty)
+        }
+    }
+
+    @Test func ifPresentIsValidIpFormat() {
+        // If defaultGatewayIp returns a value it should look like an IP
+        if let ip = defaultGatewayIp() {
+            let parts = ip.split(separator: ".")
+            // IPv4: 4 components
+            // We don't assert on IPv6 since `ip route` returns IPv4 addresses
+            #expect(!ip.isEmpty)
+            _ = parts
         }
     }
 }

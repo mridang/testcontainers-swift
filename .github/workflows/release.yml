@@ -5,17 +5,16 @@ on:
     branches:
       - master
 
-defaults:
-  run:
-    working-directory: ./
-
 permissions:
   contents: write
   id-token: write
 
+defaults:
+  run:
+    working-directory: ./
+
 jobs:
   release:
-    name: Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

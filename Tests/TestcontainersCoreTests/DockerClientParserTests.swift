@@ -134,6 +134,29 @@ struct DecodeChunkedTests {
         #expect(result.count == 1000)
         #expect(result == payload)
     }
+
+    @Test func decodeSingleByteChunk() {
+        let payload = Data([0x42])  // 1 byte
+        let input = chunked([payload])
+        let result = client.decodeChunked(input)
+        #expect(result == payload)
+        #expect(result.count == 1)
+    }
+
+    @Test func decodeTwoConsecutiveSingleByteChunks() {
+        let p1 = Data([0xAA])
+        let p2 = Data([0xBB])
+        let input = chunked([p1, p2])
+        let result = client.decodeChunked(input)
+        #expect(result == p1 + p2)
+    }
+
+    @Test func decodeBinaryPayload() {
+        let payload = Data([0x00, 0xFF, 0x7F, 0x80, 0x01])
+        let input = chunked([payload])
+        let result = client.decodeChunked(input)
+        #expect(result == payload)
+    }
 }
 
 // MARK: - stripDockerLogHeaders

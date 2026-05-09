@@ -58,4 +58,11 @@ struct NetworkTests {
         let network = Network()
         #expect(!network.name.isEmpty)
     }
+
+    @Test func connectWithAliasesBeforeCreateThrowsNetworkError() async throws {
+        let network = Network()
+        await #expect(throws: NetworkError.self) {
+            try await network.connect("some-container-id", networkAliases: ["my-alias"])
+        }
+    }
 }

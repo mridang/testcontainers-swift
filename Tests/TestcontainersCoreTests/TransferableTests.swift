@@ -143,4 +143,29 @@ struct TransferableTests {
         let entries = parseTar(tar)
         #expect(entries.isEmpty)
     }
+
+    @Test func throwsForNonExistentDirectoryPath() {
+        let fakeDir = URL(fileURLWithPath: "/tmp/__non_existent_dir_\(Int.random(in: 1...99999))__/")
+        #expect(throws: TransferableError.self) {
+            _ = try buildTransferTar(.path(fakeDir), destination: "/dest")
+        }
+    }
+
+    @Test func pathCaseStoresURL() throws {
+        let url = URL(fileURLWithPath: "/tmp/some-path.txt")
+        if case .path(let stored) = Transferable.path(url) {
+            #expect(stored == url)
+        } else {
+            Issue.record("Expected .path case")
+        }
+    }
+
+    @Test func bytesCaseStoresData() {
+        let data = Data([1, 2, 3])
+        if case .bytes(let stored) = Transferable.bytes(data) {
+            #expect(stored == data)
+        } else {
+            Issue.record("Expected .bytes case")
+        }
+    }
 }

@@ -2,16 +2,15 @@ name: Format Code (swift-format)
 
 on: push
 
+permissions:
+  contents: write
+
 defaults:
   run:
     working-directory: ./
 
-permissions:
-  contents: write
-
 jobs:
   code-formatting:
-    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

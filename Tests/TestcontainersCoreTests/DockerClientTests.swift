@@ -46,10 +46,24 @@ struct ToDockerKeyTests {
     }
 
     @Test func numericPrefixPreserved() throws {
-        // Keys starting with digits: first char is uppercased if it's a letter,
-        // digit stays as-is
         let result = try DockerClient.toDockerKey("1gb")
         #expect(result == "1gb")
+    }
+
+    @Test func snakeCaseWithMultipleUnderscores() throws {
+        // Only first char is uppercased — underscores remain
+        let result = try DockerClient.toDockerKey("cpu_count")
+        #expect(result == "Cpu_count")
+    }
+
+    @Test func allUppercaseKeyReturnedUnchanged() throws {
+        #expect(try DockerClient.toDockerKey("PRIVILEGED") == "PRIVILEGED")
+    }
+
+    @Test func leadingUnderscorePreserved() throws {
+        let result = try DockerClient.toDockerKey("_key")
+        // '_' uppercased is still '_'
+        #expect(result.hasPrefix("_"))
     }
 }
 

@@ -103,4 +103,79 @@ struct VersionTests {
         #expect(v.minor == 200)
         #expect(v.patch == 300)
     }
+
+    @Test func compareToNegativeForLess() throws {
+        let a = try ComparableVersion("1.0.0")
+        let b = try ComparableVersion("2.0.0")
+        #expect(a < b)
+        #expect(!(b < a))
+    }
+
+    @Test func compareToZeroForEqual() throws {
+        let a = try ComparableVersion("1.2.3")
+        let b = try ComparableVersion("1.2.3")
+        #expect(!(a < b))
+        #expect(!(b < a))
+    }
+
+    @Test func compareToPositiveForGreater() throws {
+        let a = try ComparableVersion("2.0.0")
+        let b = try ComparableVersion("1.9.9")
+        #expect(a > b)
+    }
+
+    @Test func throwsFormatExceptionWithDoubleDot() {
+        #expect(throws: (any Error).self) { _ = try ComparableVersion("1..3") }
+    }
+
+    @Test func throwsFormatExceptionForAlphaComponent() {
+        #expect(throws: (any Error).self) { _ = try ComparableVersion("a.b.c") }
+    }
+
+    @Test func zeroVersionEqualsItself() throws {
+        let a = try ComparableVersion("0.0.0")
+        let b = try ComparableVersion("0.0.0")
+        #expect(a == b)
+    }
+
+    @Test func zeroVersionLessThanNonZero() throws {
+        let zero = try ComparableVersion("0.0.0")
+        let one = try ComparableVersion("0.0.1")
+        #expect(zero < one)
+    }
+
+    @Test func stringOperatorEqualToMatchingVersion() throws {
+        let v = try ComparableVersion("1.2.3")
+        #expect(v == "1.2.3")
+    }
+
+    @Test func stringOperatorLessThanWithHigherString() throws {
+        let v = try ComparableVersion("1.2.3")
+        #expect(v < "1.2.4")
+    }
+
+    @Test func stringOperatorLessThanOrEqualWithSameString() throws {
+        let v = try ComparableVersion("1.2.3")
+        #expect(v <= "1.2.3")
+    }
+
+    @Test func stringOperatorGreaterThanWithLowerString() throws {
+        let v = try ComparableVersion("2.0.0")
+        #expect(v > "1.9.9")
+    }
+
+    @Test func stringOperatorGreaterThanOrEqualWithSameString() throws {
+        let v = try ComparableVersion("1.2.3")
+        #expect(v >= "1.2.3")
+    }
+
+    @Test func invalidStringInEqualOperatorReturnsFalse() throws {
+        let v = try ComparableVersion("1.2.3")
+        #expect(!(v == "not-a-version"))
+    }
+
+    @Test func invalidStringInLessOperatorReturnsFalse() throws {
+        let v = try ComparableVersion("1.2.3")
+        #expect(!(v < "not-a-version"))
+    }
 }

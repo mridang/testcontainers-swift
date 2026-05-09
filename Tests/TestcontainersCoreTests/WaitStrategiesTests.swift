@@ -368,8 +368,11 @@ struct WaitStrategyTransientTests {
         let strategy = WaitStrategy()
         strategy.startupTimeout = .seconds(2)
         strategy.pollInterval = .milliseconds(10)
-        await #expect(throws: FatalError.self) {
+        do {
             _ = try await strategy.poll { throw FatalError() }
+            Issue.record("Expected FatalError to be thrown")
+        } catch is FatalError {
+            // expected
         }
     }
 }
@@ -404,6 +407,287 @@ struct NotExitedStatusesTests {
     @Test func doesNotContainExited() {
         #expect(!notExitedStatuses.contains("exited"))
     }
+
+    @Test func hasExactlyTwoEntries() {
+        #expect(notExitedStatuses.count == 2)
+    }
+
+    @Test func containsRunningAndCreatedOnly() {
+        #expect(notExitedStatuses == Set(["running", "created"]))
+    }
+}
+
+@Suite("LogMessageWaitStrategy times")
+struct LogMessageWaitStrategyTimesTests {
+    @Test func times2SucceedsWhenPatternAppearsExactlyTwice() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (stdout: Data("ready\nready\n".utf8), stderr: Data())
+        let strategy = LogMessageWaitStrategy("ready", times: 2)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func times2FailsWhenPatternAppearsOnlyOnce() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (stdout: Data("ready\n".utf8), stderr: Data())
+        let strategy = LogMessageWaitStrategy("ready", times: 2)
+        strategy.startupTimeout = .milliseconds(100)
+        strategy.pollInterval = .milliseconds(20)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func times3SucceedsWhenPatternAppearsThreeTimes() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (stdout: Data("ok\nok\nok\n".utf8), stderr: Data())
+        let strategy = LogMessageWaitStrategy("ok", times: 3)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func times0AlwaysSucceedsEvenWithEmptyLogs() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (stdout: Data(), stderr: Data())
+        let strategy = LogMessageWaitStrategy("never", times: 0)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        try await strategy.waitUntilReady(target: target)
+    }
+}
+
+@Suite("LogMessageWaitStrategy predicateStreamsAnd")
+struct LogMessagePredicateStreamsTests {
+    @Test func andModeSucceedsWhenPatternInBothStreams() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (
+            stdout: Data("ready\n".utf8),
+            stderr: Data("ready\n".utf8)
+        )
+        let strategy = LogMessageWaitStrategy("ready", predicateStreamsAnd: true)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func andModeFailsWhenPatternOnlyInStdout() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (
+            stdout: Data("ready\n".utf8),
+            stderr: Data("no match here\n".utf8)
+        )
+        let strategy = LogMessageWaitStrategy("ready", predicateStreamsAnd: true)
+        strategy.startupTimeout = .milliseconds(100)
+        strategy.pollInterval = .milliseconds(20)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func andModeFailsWhenPatternOnlyInStderr() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (
+            stdout: Data("no match here\n".utf8),
+            stderr: Data("ready\n".utf8)
+        )
+        let strategy = LogMessageWaitStrategy("ready", predicateStreamsAnd: true)
+        strategy.startupTimeout = .milliseconds(100)
+        strategy.pollInterval = .milliseconds(20)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func orModeSucceedsWhenPatternOnlyInStderr() async throws {
+        let target = MockWaitStrategyTarget()
+        target.logsResult = (
+            stdout: Data("no match\n".utf8),
+            stderr: Data("ready\n".utf8)
+        )
+        let strategy = LogMessageWaitStrategy("ready", predicateStreamsAnd: false)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        try await strategy.waitUntilReady(target: target)
+    }
+}
+
+@Suite("LogMessageWaitStrategy timeout message")
+struct LogMessageTimeoutMessageTests {
+    @Test func timeoutMessageContainsContainerStatus() async throws {
+        let target = MockWaitStrategyTarget()
+        target.statusValue = "running"
+        target.logsResult = (stdout: Data("no match\n".utf8), stderr: Data())
+        let strategy = LogMessageWaitStrategy("NEVER_APPEAR")
+        strategy.startupTimeout = .milliseconds(100)
+        strategy.pollInterval = .milliseconds(20)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected error")
+        } catch WaitStrategyError.timeout(let msg) {
+            #expect(msg.contains("running"))
+        }
+    }
+
+    @Test func containerExitedErrorWhenStatusIsExited() async throws {
+        let target = MockWaitStrategyTarget()
+        target.statusValue = "exited"
+        target.logsResult = (stdout: Data("no match\n".utf8), stderr: Data())
+        let strategy = LogMessageWaitStrategy("NEVER_APPEAR")
+        strategy.startupTimeout = .milliseconds(100)
+        strategy.pollInterval = .milliseconds(20)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected error")
+        } catch WaitStrategyError.containerExited {
+            // expected — container exited before log message found
+        } catch WaitStrategyError.timeout {
+            // also acceptable depending on timing
+        }
+    }
+}
+
+@Suite("ContainerStatusWaitStrategy transitions")
+struct ContainerStatusTransitionTests {
+    @Test func continueStatusesHasExactlyTwoEntries() {
+        #expect(ContainerStatusWaitStrategy.continueStatuses.count == 2)
+    }
+
+    @Test func transitionsFromCreatedToRunning() async throws {
+        let target = MockWaitStrategyTarget()
+        var callCount = 0
+        target.statusValue = "created"
+        let strategy = ContainerStatusWaitStrategy()
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        // After 2 polls set status to running
+        let mockTarget = SwitchingMockTarget(initialStatus: "created", switchTo: "running", afterCount: 2)
+        try await strategy.waitUntilReady(target: mockTarget)
+        _ = callCount
+    }
+
+    @Test func throwsImmediatelyOnDeadStatus() async throws {
+        let target = MockWaitStrategyTarget()
+        target.statusValue = "dead"
+        let strategy = ContainerStatusWaitStrategy()
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected error")
+        } catch WaitStrategyError.containerExited {
+            // expected
+        }
+    }
+
+    @Test func throwsImmediatelyOnPausedStatus() async throws {
+        let target = MockWaitStrategyTarget()
+        target.statusValue = "paused"
+        let strategy = ContainerStatusWaitStrategy()
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected error")
+        } catch WaitStrategyError.containerExited {
+            // expected
+        }
+    }
+
+    @Test func throwsOnNotStartedStatus() async throws {
+        let target = MockWaitStrategyTarget()
+        target.statusValue = "not_started"
+        let strategy = ContainerStatusWaitStrategy()
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(10)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected error")
+        } catch WaitStrategyError.containerExited {
+            // expected
+        }
+    }
+
+    @Test func errorMessageContainsStatus() async throws {
+        let target = MockWaitStrategyTarget()
+        target.statusValue = "exited"
+        let strategy = ContainerStatusWaitStrategy()
+        strategy.startupTimeout = .milliseconds(100)
+        strategy.pollInterval = .milliseconds(20)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected error")
+        } catch WaitStrategyError.containerExited(let msg) {
+            #expect(msg.contains("exited"))
+        }
+    }
+}
+
+@Suite("CompositeWaitStrategy delegation")
+struct CompositeWaitStrategyDelegationTests {
+    @Test func delegatesStartupTimeoutToChildren() {
+        let child1 = ExecWaitStrategy(["echo"])
+        let child2 = LogMessageWaitStrategy("ready")
+        let composite = CompositeWaitStrategy([child1, child2])
+        composite.withStartupTimeout(.seconds(99))
+        #expect(child1.startupTimeout == .seconds(99))
+        #expect(child2.startupTimeout == .seconds(99))
+    }
+
+    @Test func delegatesPollIntervalToChildren() {
+        let child1 = ExecWaitStrategy(["echo"])
+        let child2 = LogMessageWaitStrategy("ready")
+        let composite = CompositeWaitStrategy([child1, child2])
+        composite.withPollInterval(.milliseconds(250))
+        #expect(child1.pollInterval == .milliseconds(250))
+        #expect(child2.pollInterval == .milliseconds(250))
+    }
+
+    @Test func succeedsWithEmptyStrategyList() async throws {
+        let target = MockWaitStrategyTarget()
+        let composite = CompositeWaitStrategy([])
+        composite.startupTimeout = .seconds(5)
+        try await composite.waitUntilReady(target: target)
+    }
+}
+
+// MARK: - SwitchingMockTarget helper
+
+private final class SwitchingMockTarget: WaitStrategyTarget {
+    private var callCount = 0
+    private let switchTo: String
+    private let afterCount: Int
+    private var currentStatus: String
+
+    init(initialStatus: String, switchTo: String, afterCount: Int) {
+        self.currentStatus = initialStatus
+        self.switchTo = switchTo
+        self.afterCount = afterCount
+    }
+
+    func containerHostIp() async throws -> String { "127.0.0.1" }
+    func exposedPort(_ port: Int) async throws -> Int { 1234 }
+    var wrappedContainer: AnyObject { self }
+    func logs() async throws -> (stdout: Data, stderr: Data) { (Data(), Data()) }
+    func exec(_ command: [String]) async throws -> (exitCode: Int, output: Data) { (0, Data()) }
+    func containerInfo() async throws -> ContainerInspectInfo? { nil }
+    func reload() async {
+        callCount += 1
+        if callCount >= afterCount {
+            currentStatus = switchTo
+        }
+    }
+    var status: String { currentStatus }
 }
 
 // MARK: - Helpers
