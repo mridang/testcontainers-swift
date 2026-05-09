@@ -43,7 +43,7 @@ jobs:
             ${{ runner.os }}-spm-
 
       - run: swift build
-      - run: swift test
+      - run: swift test --xunit-output .out/junit.xml
 
       - name: Generate coverage
         if: always()
