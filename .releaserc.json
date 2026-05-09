@@ -1,0 +1,18 @@
+{
+  "branches": ["master"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    ["@semantic-release/exec", {
+      "prepareCmd": "perl -pi -e \"s/let tcVersion = \\\"[^\\\"]*\\\"/let tcVersion = \\\"${nextRelease.version}\\\"/\" Sources/TestcontainersCore/Labels.swift"
+    }],
+    ["@semantic-release/git", {
+      "assets": [
+        "Sources/TestcontainersCore/Labels.swift",
+        "CHANGELOG.md"
+      ],
+      "message": "chore(release): ${nextRelease.version}"
+    }],
+    "@semantic-release/github"
+  ]
+}

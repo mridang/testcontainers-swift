@@ -1,0 +1,39 @@
+name: Run Tests (swift test)
+
+on: push
+
+jobs:
+  app-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: ./docker_images
+          key: ${{ runner.os }}-docker-${{ hashFiles('**/compose.yaml','**/docker-compose.yaml') }}
+      - name: Docker pull
+        run: |
+          mkdir -p docker_images
+          if [ -f docker_images/combined_images.tar ]; then
+            docker image load -i docker_images/combined_images.tar
+          else
+            docker pull alpine:latest
+            docker pull nginx:alpine-slim
+            docker image save alpine:latest nginx:alpine-slim -o docker_images/combined_images.tar
+          fi
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.10"
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+      - run: swift build
+      - run: swift test
+      - name: Generate coverage
+        if: always()
+        uses: mridang/action-test-reporter@v3
+        with:
+          results-path: '.out/junit.xml'

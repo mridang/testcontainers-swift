@@ -1,0 +1,19 @@
+name: Format Code (swift-format)
+
+on: push
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.10"
+      - run: swift format --recursive --in-place Sources Tests
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Apply swift-format
