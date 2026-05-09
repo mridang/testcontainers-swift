@@ -34,6 +34,7 @@ jobs:
       - run: swift test
       - name: Generate coverage
         if: always()
+        continue-on-error: true
         uses: mridang/action-test-reporter@v3
         with:
           results-path: '.out/junit.xml'
