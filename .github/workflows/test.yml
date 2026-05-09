@@ -52,7 +52,17 @@ jobs:
         run: swift build
 
       - name: Test
-        run: swift test
+        run: swift test --enable-code-coverage
+
+      - name: Export coverage
+        if: always()
+        run: |
+          mkdir -p .out
+          BINARY=$(swift test --show-bin-path 2>/dev/null)/testcontainers-swiftPackageTests
+          PROFDATA=$(swift test --show-bin-path 2>/dev/null)/codecov/default.profdata
+          if [ -f "$PROFDATA" ]; then
+            llvm-cov export -format=lcov "$BINARY" -instr-profile "$PROFDATA" > .out/lcov.info || true
+          fi
 
       - name: Generate coverage
         if: always()
@@ -60,3 +70,4 @@ jobs:
         uses: mridang/action-test-reporter@v3
         with:
           results-path: '.out/junit.xml'
+          coverage-path: '.out/lcov.info'

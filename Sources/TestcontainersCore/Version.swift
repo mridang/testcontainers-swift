@@ -17,7 +17,7 @@
 /// let v = try ComparableVersion("1.41.0")
 /// assert(v > (try ComparableVersion("1.40.0")))
 /// ```
-public struct ComparableVersion: Comparable, Equatable, CustomStringConvertible {
+public struct ComparableVersion: Comparable, Equatable, Hashable, CustomStringConvertible {
     /// The major version component.
     public let major: Int
 
@@ -74,6 +74,10 @@ public struct ComparableVersion: Comparable, Equatable, CustomStringConvertible 
     /// Returns `true` when `lhs` equals `rhs`.
     public static func == (lhs: ComparableVersion, rhs: ComparableVersion) -> Bool {
         lhs.parts == rhs.parts
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(parts)
     }
 
     /// Returns `true` when `lhs` equals the version represented by `rhs`.

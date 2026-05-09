@@ -312,7 +312,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "FOO=bar\nBAZ=qux\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["FOO"] == "bar")
         #expect(c.env["BAZ"] == "qux")
     }
@@ -327,7 +327,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try content.write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["DOMAIN"] == "example.org")
         #expect(c.env["ADMIN_EMAIL"] == "admin@example.org")
         #expect(c.env["ROOT_URL"] == "example.org/app")
@@ -342,7 +342,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "# This is a comment\n\nKEY=value\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env.count == 1)
         #expect(c.env["KEY"] == "value")
     }
@@ -356,7 +356,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "VALID=value\nNOEQUALSSIGN\nALSO_VALID=ok\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["VALID"] == "value")
         #expect(c.env["ALSO_VALID"] == "ok")
         #expect(c.env["NOEQUALSSIGN"] == nil)
@@ -371,7 +371,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "SECRET=abc=123==\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["SECRET"] == "abc=123==")
     }
 
@@ -384,7 +384,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "  KEY  =  value  \n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["KEY"] == "value")
     }
 
@@ -397,7 +397,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "# comment 1\n# comment 2\n\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env.isEmpty)
     }
 
@@ -410,7 +410,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "FROM_FILE=yes\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine")
+        let c = try DockerContainer("alpine")
             .withEnv("FROM_CODE", "also")
             .withEnvFile(envFile.path)
         #expect(c.env["FROM_CODE"] == "also")
@@ -426,7 +426,7 @@ struct ContainerEnvFileTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "KEY=new\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine")
+        let c = try DockerContainer("alpine")
             .withEnv("KEY", "old")
             .withEnvFile(envFile.path)
         #expect(c.env["KEY"] == "new")
@@ -630,7 +630,7 @@ struct ContainerEnvFileAdditionalTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "KEY=prefix-${MISSING_VAR}-suffix\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["KEY"] == "prefix--suffix")
     }
 
@@ -642,7 +642,7 @@ struct ContainerEnvFileAdditionalTests {
         // Windows-style CRLF: the trim inside withEnvFile strips the trailing \r.
         try Data("A=1\r\nB=2\r\n".utf8).write(to: envFile)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["A"] == "1")
         #expect(c.env["B"] == "2")
     }
@@ -655,7 +655,7 @@ struct ContainerEnvFileAdditionalTests {
         // The regex requires ${VAR} braces; bare $VAR is left as-is.
         try "KEY=prefix-$SIMPLE-suffix\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine").withEnvFile(envFile.path)
+        let c = try DockerContainer("alpine").withEnvFile(envFile.path)
         #expect(c.env["KEY"] == "prefix-$SIMPLE-suffix")
     }
 
@@ -668,7 +668,7 @@ struct ContainerEnvFileAdditionalTests {
         let envFile = tmp.appendingPathComponent(".env")
         try "DERIVED=hello-${HOST}\n".write(to: envFile, atomically: true, encoding: .utf8)
 
-        let c = DockerContainer("alpine")
+        let c = try DockerContainer("alpine")
             .withEnv("HOST", "example.com")
             .withEnvFile(envFile.path)
 
@@ -676,10 +676,12 @@ struct ContainerEnvFileAdditionalTests {
         #expect(c.env["HOST"] == "example.com")
     }
 
-    @Test func nonExistentFileIsHandledSilently() {
-        // Swift uses `try?` so a missing file is a silent no-op (no throw).
+    @Test func throwsForNonExistentEnvFile() {
+        // withEnvFile propagates the underlying file-read error when the file
+        // does not exist — matches Dart's FileSystemException behaviour.
         let missingPath = "/tmp/__tc_no_such_env_\(Int.random(in: 1...999999))__"
-        let c = DockerContainer("alpine").withEnvFile(missingPath)
-        #expect(c.env.isEmpty)
+        #expect(throws: (any Error).self) {
+            _ = try DockerContainer("alpine").withEnvFile(missingPath)
+        }
     }
 }

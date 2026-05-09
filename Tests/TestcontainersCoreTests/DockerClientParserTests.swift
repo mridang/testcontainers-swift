@@ -314,3 +314,17 @@ struct ParseHttpResponseTests {
         #expect(headers["x-custom"] == "value:with:colons")
     }
 }
+
+// MARK: - NullByteRoundTripTests
+
+@Suite("DockerClient null-byte round-trip")
+struct NullByteRoundTripTests {
+    let client = DockerClient.testOnly()
+
+    @Test func nullBytePayloadSurvivesRoundTrip() {
+        let binaryPayload = Data([0x00, 0x01, 0x02, 0xFF, 0x80])
+        let frame = makeLogFrame(stream: 1, payload: binaryPayload)
+        let result = client.stripDockerLogHeaders(frame)
+        #expect(result == binaryPayload)
+    }
+}

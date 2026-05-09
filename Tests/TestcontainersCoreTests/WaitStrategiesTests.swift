@@ -1,6 +1,12 @@
 import Foundation
 import Testing
 
+#if canImport(Darwin)
+    import Darwin
+#else
+    import Glibc
+#endif
+
 @testable import TestcontainersCore
 
 // MARK: - Mock WaitStrategyTarget
@@ -1483,4 +1489,459 @@ private final class CountingLogsTarget: WaitStrategyTarget {
     func containerInfo() async throws -> ContainerInspectInfo? { nil }
     func reload() async {}
     var status: String { "running" }
+}
+
+// MARK: - Test servers
+
+/// A minimal TCP test server bound to an ephemeral port on 127.0.0.1.
+/// Accepts connections and immediately closes them (no data exchange).
+/// Used to verify PortWaitStrategy can connect successfully.
+final class MinimalTCPTestServer {
+    private(set) var port: Int = 0
+    private var listenFD: Int32 = -1
+
+    func start() throws {
+        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard listenFD >= 0 else { throw MinimalServerError.socketCreate }
+        var optval: Int32 = 1
+        setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &optval, socklen_t(MemoryLayout<Int32>.size))
+        var addr = sockaddr_in()
+        memset(&addr, 0, MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        addr.sin_port = 0
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard rc == 0 else { throw MinimalServerError.bind }
+        guard listen(listenFD, 10) == 0 else { throw MinimalServerError.listen }
+        var addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+        withUnsafeMutablePointer(to: &addr) { ptr in
+            _ = ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(listenFD, $0, &addrLen) }
+        }
+        port = Int(UInt16(bigEndian: addr.sin_port))
+        let fd = listenFD
+        Thread.detachNewThread {
+            while true {
+                let client = accept(fd, nil, nil)
+                if client < 0 { break }
+                close(client)
+            }
+        }
+    }
+
+    func stop() {
+        if listenFD >= 0 { close(listenFD); listenFD = -1 }
+    }
+}
+
+/// A minimal HTTP/1.1 test server bound to an ephemeral port on 127.0.0.1.
+/// Serves configurable responses and records received requests.
+final class MinimalHTTPTestServer {
+    private(set) var port: Int = 0
+    private var listenFD: Int32 = -1
+    private let lock = NSLock()
+    private(set) var recordedRequests: [(method: String, path: String, headers: [String: String])] = []
+    private var responseQueue: [(status: Int, body: String, extraHeaders: [String: String])] = []
+    var defaultStatus: Int = 200
+    var defaultBody: String = ""
+
+    func enqueue(status: Int, body: String = "", headers: [String: String] = [:]) {
+        lock.lock(); defer { lock.unlock() }
+        responseQueue.append((status, body, headers))
+    }
+
+    func start() throws {
+        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard listenFD >= 0 else { throw MinimalServerError.socketCreate }
+        var optval: Int32 = 1
+        setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &optval, socklen_t(MemoryLayout<Int32>.size))
+        var addr = sockaddr_in()
+        memset(&addr, 0, MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        addr.sin_port = 0
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard rc == 0 else { throw MinimalServerError.bind }
+        guard listen(listenFD, 10) == 0 else { throw MinimalServerError.listen }
+        var addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+        withUnsafeMutablePointer(to: &addr) { ptr in
+            _ = ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(listenFD, $0, &addrLen) }
+        }
+        port = Int(UInt16(bigEndian: addr.sin_port))
+        let fd = listenFD
+        let ref = self
+        Thread.detachNewThread { ref.acceptLoop(fd: fd) }
+    }
+
+    func stop() {
+        if listenFD >= 0 { close(listenFD); listenFD = -1 }
+    }
+
+    private func acceptLoop(fd: Int32) {
+        while true {
+            let client = accept(fd, nil, nil)
+            if client < 0 { break }
+            let ref = self
+            Thread.detachNewThread { ref.handle(client: client) }
+        }
+    }
+
+    private func handle(client fd: Int32) {
+        defer { close(fd) }
+        var rawData = Data()
+        var buf = [UInt8](repeating: 0, count: 4096)
+        repeat {
+            let n = recv(fd, &buf, buf.count, 0)
+            if n <= 0 { return }
+            rawData.append(contentsOf: buf[0..<n])
+        } while rawData.range(of: Data("\r\n\r\n".utf8)) == nil
+        let raw = String(data: rawData, encoding: .utf8) ?? ""
+        let lines = raw.components(separatedBy: "\r\n")
+        let parts = (lines.first ?? "").split(separator: " ", maxSplits: 2)
+        let method = parts.count > 0 ? String(parts[0]) : "GET"
+        let path = parts.count > 1 ? String(parts[1]) : "/"
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let k = String(line[..<colon]).trimmingCharacters(in: .whitespaces).lowercased()
+            let v = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            headers[k] = v
+        }
+        lock.lock()
+        recordedRequests.append((method, path, headers))
+        let resp: (status: Int, body: String, extraHeaders: [String: String])
+        if !responseQueue.isEmpty { resp = responseQueue.removeFirst() }
+        else { resp = (defaultStatus, defaultBody, [:]) }
+        lock.unlock()
+        var response = "HTTP/1.1 \(resp.status) Status\r\nContent-Length: \(resp.body.utf8.count)\r\nConnection: close\r\n"
+        for (k, v) in resp.extraHeaders { response += "\(k): \(v)\r\n" }
+        response += "\r\n\(resp.body)"
+        let d = Data(response.utf8)
+        d.withUnsafeBytes { _ = send(fd, $0.baseAddress, d.count, 0) }
+    }
+}
+
+enum MinimalServerError: Error { case socketCreate, bind, listen }
+
+// MARK: - PortWaitStrategy real server tests
+
+@Suite("PortWaitStrategy real server")
+struct PortWaitStrategyRealServerTests {
+
+    @Test func succeedsWhenRealTCPServerIsListening() async throws {
+        let server = MinimalTCPTestServer()
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = PortWaitStrategy(server.port)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(50)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func throwsTimeoutWhenNoServerIsListening() async throws {
+        // Bind a port then immediately stop so nothing is listening.
+        let probe = MinimalTCPTestServer()
+        try probe.start()
+        let freePort = probe.port
+        probe.stop()
+
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = freePort
+        let strategy = PortWaitStrategy(freePort)
+        strategy.startupTimeout = .milliseconds(300)
+        strategy.pollInterval = .milliseconds(50)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected WaitStrategyError.timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func timeoutMessageContainsPortNumber() async throws {
+        let probe = MinimalTCPTestServer()
+        try probe.start()
+        let freePort = probe.port
+        probe.stop()
+
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = freePort
+        let strategy = PortWaitStrategy(freePort)
+        strategy.startupTimeout = .milliseconds(200)
+        strategy.pollInterval = .milliseconds(50)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected WaitStrategyError.timeout")
+        } catch WaitStrategyError.timeout(let msg) {
+            #expect(msg.contains(String(freePort)))
+        }
+    }
+}
+
+// MARK: - HttpWaitStrategy real server tests
+
+@Suite("HttpWaitStrategy real server")
+struct HttpWaitStrategyRealServerTests {
+
+    @Test func succeedsWhenHTTPServerReturns200() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 200
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func throwsTimeoutWhenNoHTTPServerIsListening() async throws {
+        let probe = MinimalTCPTestServer()
+        try probe.start()
+        let freePort = probe.port
+        probe.stop()
+
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = freePort
+        let strategy = HttpWaitStrategy(port: freePort)
+        strategy.startupTimeout = .milliseconds(300)
+        strategy.pollInterval = .milliseconds(50)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected WaitStrategyError.timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func timeoutMessageSaysHTTPEndpointNotReady() async throws {
+        let probe = MinimalTCPTestServer()
+        try probe.start()
+        let freePort = probe.port
+        probe.stop()
+
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = freePort
+        let strategy = HttpWaitStrategy(port: freePort)
+        strategy.startupTimeout = .milliseconds(200)
+        strategy.pollInterval = .milliseconds(50)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected WaitStrategyError.timeout")
+        } catch WaitStrategyError.timeout(let msg) {
+            #expect(msg.contains("not ready"))
+        }
+    }
+
+    @Test func keepsPollingWhenServerReturns503ThenEventually200() async throws {
+        let server = MinimalHTTPTestServer()
+        server.enqueue(status: 503)
+        server.enqueue(status: 503)
+        server.defaultStatus = 200
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+        #expect(server.recordedRequests.count >= 3)
+    }
+
+    @Test func succeedsWithForStatusCodeMatchingAcceptsAny2xx() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 204
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .forStatusCodeMatching { $0 >= 200 && $0 < 300 }
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func forStatusCodeMatchingTakesPrecedenceOverForStatusCode() async throws {
+        // Server returns 202; forStatusCode(200) is in the exact set, but
+        // forStatusCodeMatching overrides it and accepts 202.
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 202
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .forStatusCode(200)
+            .forStatusCodeMatching { $0 == 202 }
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func succeedsWhenForResponsePredicateMatchesBody() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 200
+        server.defaultBody = "Hello"
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .forResponsePredicate { $0.contains("Hello") }
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func timesOutWhenResponsePredicateNeverSatisfied() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 200
+        server.defaultBody = "{\"status\":\"starting\"}"
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .forResponsePredicate { $0.contains("\"status\":\"ready\"") }
+        strategy.startupTimeout = .milliseconds(300)
+        strategy.pollInterval = .milliseconds(50)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected WaitStrategyError.timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func succeedsWithForStatusCode201() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 201
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .forStatusCode(201)
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+    }
+
+    @Test func timesOutWhenServerAlwaysReturns404() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 404
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+        strategy.startupTimeout = .milliseconds(300)
+        strategy.pollInterval = .milliseconds(50)
+        do {
+            try await strategy.waitUntilReady(target: target)
+            Issue.record("Expected WaitStrategyError.timeout")
+        } catch WaitStrategyError.timeout {
+            // expected
+        }
+    }
+
+    @Test func succeedsOnCustomPath() async throws {
+        let server = MinimalHTTPTestServer()
+        // Default response is 404; only /health gets 200.
+        server.defaultStatus = 404
+        try server.start()
+        defer { server.stop() }
+        // Override via a custom handler: use response queue cannot vary by path,
+        // so set defaultStatus=200 and rely on path-recording to verify.
+        // Instead, restart with 200 and check path was correct.
+        server.stop()
+        let server2 = MinimalHTTPTestServer()
+        server2.defaultStatus = 200
+        try server2.start()
+        defer { server2.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server2.port
+        let strategy = HttpWaitStrategy(port: server2.port, path: "/health")
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+        // Verify the server received a request to /health.
+        let paths = server2.recordedRequests.map { $0.path }
+        #expect(paths.contains("/health"))
+    }
+
+    @Test func withMethodSendsSpecifiedHTTPMethod() async throws {
+        let server = MinimalHTTPTestServer()
+        // Server always returns 200 regardless of method; we verify method was POST.
+        server.defaultStatus = 200
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .withMethod("POST")
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+        let methods = server.recordedRequests.map { $0.method }
+        #expect(methods.contains("POST"))
+    }
+
+    @Test func withHeaderSendsCustomHeaders() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 200
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        let strategy = HttpWaitStrategy(port: server.port)
+            .withHeader("X-Api-Token", "secret-token")
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+        let receivedHeader = server.recordedRequests.first?.headers["x-api-token"]
+        #expect(receivedHeader == "secret-token")
+    }
+
+    @Test func withBasicCredentialsSendsAuthorizationHeader() async throws {
+        let server = MinimalHTTPTestServer()
+        server.defaultStatus = 200
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let target = MockWaitStrategyTarget()
+        target.exposedPortValue = server.port
+        // 'admin:s3cr3t' base64-encoded = 'YWRtaW46czNjcjN0'
+        let strategy = HttpWaitStrategy(port: server.port)
+            .withBasicCredentials("admin", "s3cr3t")
+        strategy.startupTimeout = .seconds(5)
+        strategy.pollInterval = .milliseconds(100)
+        try await strategy.waitUntilReady(target: target)
+        let authHeader = server.recordedRequests.first?.headers["authorization"]
+        #expect(authHeader == "Basic YWRtaW46czNjcjN0")
+    }
 }

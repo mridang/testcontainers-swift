@@ -119,3 +119,48 @@ struct DefaultGatewayIpTests {
         }
     }
 }
+
+@Suite("Platform cross-validation")
+struct PlatformCrossValidationTests {
+    #if os(macOS)
+        @Test func isMacMatchesPlatformIsMacOS() {
+            #expect(isMac() == true)
+            #expect(!isLinux())
+            #expect(!isWindows())
+        }
+    #endif
+
+    #if os(Linux)
+        @Test func isLinuxMatchesPlatformIsLinux() {
+            #expect(isLinux() == true)
+            #expect(!isMac())
+            #expect(!isWindows())
+        }
+    #endif
+
+    #if os(Windows)
+        @Test func isWindowsMatchesPlatformIsWindows() {
+            #expect(isWindows() == true)
+            #expect(!isMac())
+            #expect(!isLinux())
+        }
+    #endif
+
+    #if arch(arm64)
+        @Test func isArmConsistencyArm64() {
+            #expect(isArm() == true)
+        }
+    #endif
+
+    #if arch(x86_64)
+        @Test func isArmConsistencyX86_64() {
+            #expect(isArm() == false)
+        }
+    #endif
+
+    #if os(macOS)
+        @Test func defaultGatewayIpReturnsNilOnMacOS() {
+            #expect(defaultGatewayIp() == nil)
+        }
+    #endif
+}

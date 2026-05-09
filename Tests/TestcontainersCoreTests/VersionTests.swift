@@ -178,4 +178,46 @@ struct VersionTests {
         let v = try ComparableVersion("1.2.3")
         #expect(!(v < "not-a-version"))
     }
+
+    /// Dart's ordering operators throw `FormatException` when given an invalid
+    /// version string. Swift throws at *construction* time (not comparison time),
+    /// which provides an equivalent safety guarantee: invalid strings are never
+    /// silently accepted as version values.
+    @Test func throwsForInvalidVersionString() {
+        #expect(throws: ComparableVersionError.self) { _ = try ComparableVersion("invalid") }
+        #expect(throws: ComparableVersionError.self) { _ = try ComparableVersion("1.2") }
+        #expect(throws: ComparableVersionError.self) { _ = try ComparableVersion("1.2.3.4") }
+        #expect(throws: ComparableVersionError.self) { _ = try ComparableVersion("a.b.c") }
+        #expect(throws: ComparableVersionError.self) { _ = try ComparableVersion("1..3") }
+    }
+}
+
+@Suite("ComparableVersion Hashable")
+struct ComparableVersionHashableTests {
+    @Test func hashCodeIsConsistentWithEquals() throws {
+        let a = try ComparableVersion("1.2.3")
+        let b = try ComparableVersion("1.2.3")
+        #expect(a == b)
+        var set = Set<ComparableVersion>()
+        set.insert(a)
+        #expect(set.contains(b))
+    }
+
+    @Test func hashCodeDiffersForUnequalVersions() throws {
+        let a = try ComparableVersion("1.2.3")
+        let b = try ComparableVersion("1.2.4")
+        let set: Set<ComparableVersion> = [a, b]
+        #expect(set.count == 2)
+    }
+
+    @Test func canBeUsedAsDictionaryKey() throws {
+        var dict = [ComparableVersion: String]()
+        dict[try ComparableVersion("1.0.0")] = "one"
+        #expect(dict[try ComparableVersion("1.0.0")] == "one")
+    }
+
+    @Test func canBeStoredInASet() throws {
+        let set = try Set([ComparableVersion("1.0.0"), ComparableVersion("1.0.0")])
+        #expect(set.count == 1)
+    }
 }

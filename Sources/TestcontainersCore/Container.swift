@@ -127,11 +127,10 @@ public class DockerContainer: WaitStrategyTarget, @unchecked Sendable {
     /// - Each line must contain `=`; the part before the first `=` is the key.
     /// - `${VAR}` references are expanded using variables already resolved
     ///   earlier in the same file.
+    /// - Throws when the file cannot be read (e.g. it does not exist).
     @discardableResult
-    public func withEnvFile(_ path: String) -> Self {
-        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
-            return self
-        }
+    public func withEnvFile(_ path: String) throws -> Self {
+        let content = try String(contentsOfFile: path, encoding: .utf8)
         var resolved: [String: String] = [:]
         for rawLine in content.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)

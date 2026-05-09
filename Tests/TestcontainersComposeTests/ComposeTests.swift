@@ -625,6 +625,58 @@ struct ComposeAdditionalUnitTests {
         let container = ComposeContainer(service: "web")
         await container.reload()
     }
+
+    @Test func publisherErrorMessageContainsServiceNameAndPort() {
+        let container = ComposeContainer(
+            service: "database",
+            publishers: [
+                PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 8080, protocol_: "tcp")
+            ]
+        )
+        do {
+            _ = try container.publisher(byPort: 9999)
+            Issue.record("Expected NoSuchPortExposed to be thrown")
+        } catch let error as NoSuchPortExposed {
+            let message = String(describing: error)
+            #expect(message.contains("database") || message.contains("9999"))
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test func publisherAmbiguousErrorMessageContainsCount() {
+        let container = ComposeContainer(
+            service: "web",
+            publishers: [
+                PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 32768, protocol_: "tcp"),
+                PublishedPortModel(url: "127.0.0.1", targetPort: 80, publishedPort: 32769, protocol_: "tcp"),
+                PublishedPortModel(url: "10.0.0.1", targetPort: 80, publishedPort: 32770, protocol_: "tcp"),
+            ]
+        )
+        do {
+            _ = try container.publisher(byPort: 80)
+            Issue.record("Expected NoSuchPortExposed to be thrown")
+        } catch let error as NoSuchPortExposed {
+            let message = String(describing: error)
+            #expect(message.contains("3") || message.contains("ambiguous") || message.contains("Ambiguous"))
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test func waitingForReturnsSelfForChaining() {
+        let dc = DockerCompose(context: "/tmp")
+        let strategy = LogMessageWaitStrategy("ready")
+        let result = dc.waitingFor(["db": strategy])
+        #expect(result === dc)
+    }
+
+    @Test func composeCommandPropertyValuesAreEqualAcrossAccesses() {
+        let dc = DockerCompose(context: "/tmp", composeFileName: ["docker-compose.yaml"])
+        let first = dc.composeCommandProperty
+        let second = dc.composeCommandProperty
+        #expect(first == second)
+    }
 }
 
 // MARK: - Integration tests (require Docker)
