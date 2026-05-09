@@ -5,30 +5,55 @@
 /// concrete strategies subclass.
 import Foundation
 
+/// Internal sentinel thrown by `ContainerStatusWaitStrategy` to break the poll loop.
+public struct StopPollingError: Error {}
+
+/// Throws `StopPollingError` to signal that the poll loop should stop immediately
+/// without waiting for the timeout.
+///
+/// Used by `ContainerStatusWaitStrategy` when the container enters an
+/// unexpected state (e.g. `"exited"` or `"dead"`) from which it cannot recover.
+public func throwStopIteration() throws -> Never {
+    throw StopPollingError()
+}
+
 /// Statuses that mean the container has not yet finished starting.
 public let notExitedStatuses: Set<String> = ["running", "created"]
-
-/// Internal sentinel thrown by `ContainerStatusWaitStrategy` to break the poll loop.
-struct StopPollingError: Error {}
 
 /// The interface that containers must implement for wait strategies.
 ///
 /// Both `DockerContainer` and `ComposeContainer` conform to this protocol.
 public protocol WaitStrategyTarget: AnyObject {
     /// Returns the host IP address used to reach this container.
-    func containerHostIp() -> String
+    func containerHostIp() async throws -> String
 
     /// Returns the host port mapped to the given container port.
     func exposedPort(_ port: Int) async throws -> Int
 
+    /// The underlying container object.
+    ///
+    /// For `DockerContainer` this is `self`. For `ComposeContainer` this is
+    /// also `self`. Prefer calling typed methods on `WaitStrategyTarget`
+    /// directly instead of casting this value.
+    var wrappedContainer: AnyObject { get }
+
     /// Returns the raw stdout and stderr log bytes.
-    func logs() throws -> (stdout: Data, stderr: Data)
+    func logs() async throws -> (stdout: Data, stderr: Data)
 
     /// Executes a command inside the container and returns the exit code and output.
     func exec(_ command: [String]) async throws -> (exitCode: Int, output: Data)
 
+    /// Returns the full Docker inspect information for this container.
+    ///
+    /// The result is lazily loaded and cached by most implementations. Returns
+    /// `nil` when the container has not yet been started or when the inspect
+    /// call fails.
+    func containerInfo() async throws -> ContainerInspectInfo?
+
     /// Reloads the container's state from the Docker daemon.
-    func reload()
+    ///
+    /// Called by polling strategies between attempts to pick up status changes.
+    func reload() async
 
     /// The container's current lifecycle status, e.g. `"running"`, `"exited"`.
     var status: String { get }
@@ -41,11 +66,11 @@ public protocol WaitStrategyTarget: AnyObject {
 open class WaitStrategy {
     /// Maximum time to wait for the container to become ready.
     /// Defaults to `testcontainersConfig.timeout` (120 s by default).
-    public var startupTimeout: Duration = .seconds(120)
+    public var startupTimeout: Duration
 
     /// Time between successive polling attempts.
     /// Defaults to `testcontainersConfig.sleepTime` (1 s by default).
-    public var pollInterval: Duration = .seconds(1)
+    public var pollInterval: Duration
 
     /// Exception types treated as transient failures — silently retried.
     public var transientExceptionTypes: [any Error.Type] = []
@@ -72,9 +97,12 @@ open class WaitStrategy {
     }
 
     /// Adds exception types that should be silently retried during polling.
+    ///
+    /// A transient exception causes the current poll attempt to be silently
+    /// retried. `URLError` and `CancellationError` are always transient.
     @discardableResult
-    public func withTransientException(_ type: any Error.Type) -> Self {
-        transientExceptionTypes.append(type)
+    public func withTransientExceptions(_ exceptions: [any Error.Type]) -> Self {
+        transientExceptionTypes.append(contentsOf: exceptions)
         return self
     }
 
@@ -89,8 +117,6 @@ open class WaitStrategy {
     /// non-transient error is thrown.
     ///
     /// - Returns: `true` when `check` returned `true`, `false` on timeout.
-    /// - Throws: `StopPollingError` if the check signals early termination;
-    ///   rethrows any non-transient error from `check`.
     @discardableResult
     public func poll(
         _ check: () async throws -> Bool,

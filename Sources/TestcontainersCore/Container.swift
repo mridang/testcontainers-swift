@@ -22,7 +22,7 @@ import FoundationNetworking
 /// ```swift
 /// try await DockerContainer.use(
 ///     DockerContainer("redis:7")
-///         .withExposedPorts(6379)
+///         .withExposedPorts([6379])
 ///         .waitingFor(PortWaitStrategy(6379))
 /// ) { container in
 ///     let port = try await container.exposedPort(6379)
@@ -47,22 +47,31 @@ public class DockerContainer: WaitStrategyTarget {
     private var _kwargs: [String: Any] = [:]
     private var _waitStrategy: WaitStrategy?
     private var _transferableSpecs: [TransferSpec] = []
-    private let dockerClient: DockerClient
+    private let _dockerClient: DockerClient
 
-    private var containerId: String?
-    private var cachedContainerInfo: ContainerInspectInfo?
-    private var cachedStatus: String = "not_started"
+    private var _containerId: String?
+    private var _cachedContainerInfo: ContainerInspectInfo?
+    private var _cachedStatus: String = "not_started"
 
     /// Environment variables injected into the container.
+    ///
+    /// Read-only view. Use `withEnv`, `withEnvs`, and `withEnvFile` to add entries.
     public var env: [String: String] { _env }
 
     /// Port map: container port → optional host port.
+    ///
+    /// A `nil` host port value requests an ephemeral port from the OS.
+    /// Read-only view. Use `withBindPorts` and `withExposedPorts` to add entries.
     public var ports: [Int: Int?] { _ports }
 
     /// Volume bind mounts.
+    ///
+    /// Read-only view. Use `withVolumeMapping` to add entries.
     public var volumes: [String: MountConfig] { _volumes }
 
     /// Tmpfs mounts: container path → size string.
+    ///
+    /// Read-only view. Use `withTmpfsMount` to add entries.
     public var tmpfs: [String: String] { _tmpfs }
 
     /// The command override, or `nil` when using the image default.
@@ -75,9 +84,13 @@ public class DockerContainer: WaitStrategyTarget {
     public var network: Network? { _network }
 
     /// DNS aliases on `network`, or `nil`.
+    ///
+    /// Read-only view. Use `withNetworkAliases` to set aliases.
     public var networkAliases: [String]? { _networkAliases }
 
     /// Extra Docker `HostConfig` fields.
+    ///
+    /// Read-only view. Use `withKwargs` to set extra host-config fields.
     public var kwargs: [String: Any] { _kwargs }
 
     // MARK: - Init
@@ -88,7 +101,7 @@ public class DockerContainer: WaitStrategyTarget {
     /// `image` automatically.
     public init(_ image: String, dockerClient: DockerClient? = nil) {
         self.image = testcontainersConfig.hubImageNamePrefix + image
-        self.dockerClient = dockerClient ?? DockerClient()
+        self._dockerClient = dockerClient ?? DockerClient()
     }
 
     // MARK: - Builder methods
@@ -125,7 +138,6 @@ public class DockerContainer: WaitStrategyTarget {
             guard let eqIdx = line.firstIndex(of: "=") else { continue }
             let key = line[line.startIndex..<eqIdx].trimmingCharacters(in: .whitespaces)
             let rawValue = line[line.index(after: eqIdx)...].trimmingCharacters(in: .whitespaces)
-            // Expand ${VAR} references using already-resolved variables
             let value = expandVars(rawValue, using: resolved)
             resolved[key] = value
             _env[key] = value
@@ -136,14 +148,15 @@ public class DockerContainer: WaitStrategyTarget {
     /// Maps `containerPort` to an optional fixed `hostPort`.
     @discardableResult
     public func withBindPorts(_ containerPort: Int, _ hostPort: Int? = nil) -> Self {
-        // Use updateValue to store nil values without removing the key
         _ports.updateValue(hostPort, forKey: containerPort)
         return self
     }
 
-    /// Exposes each port with an ephemeral host port.
+    /// Exposes each port in `exposedPorts` with an ephemeral host port.
+    ///
+    /// Equivalent to calling `withBindPorts(p, nil)` for each `p`.
     @discardableResult
-    public func withExposedPorts(_ ports: Int...) -> Self {
+    public func withExposedPorts(_ ports: [Int]) -> Self {
         for p in ports { _ports.updateValue(nil, forKey: p) }
         return self
     }
@@ -157,7 +170,7 @@ public class DockerContainer: WaitStrategyTarget {
 
     /// Sets DNS aliases for the container on its network.
     @discardableResult
-    public func withNetworkAliases(_ aliases: String...) -> Self {
+    public func withNetworkAliases(_ aliases: [String]) -> Self {
         _networkAliases = aliases
         return self
     }
@@ -183,7 +196,7 @@ public class DockerContainer: WaitStrategyTarget {
         return self
     }
 
-    /// Adds a volume bind mount.
+    /// Adds a volume bind mount from `host` to `container` with `mode`.
     @discardableResult
     public func withVolumeMapping(_ host: String, _ container: String, _ mode: String) -> Self {
         _volumes[host] = MountConfig(hostPath: container, mode: mode)
@@ -191,6 +204,8 @@ public class DockerContainer: WaitStrategyTarget {
     }
 
     /// Adds a tmpfs mount at `containerPath`.
+    ///
+    /// `size` is an optional size string in the Docker format (e.g. `"64m"`).
     @discardableResult
     public func withTmpfsMount(_ containerPath: String, size: String? = nil) -> Self {
         _tmpfs[containerPath] = size ?? ""
@@ -198,6 +213,9 @@ public class DockerContainer: WaitStrategyTarget {
     }
 
     /// Merges `kwargs` into the extra Docker `HostConfig` fields.
+    ///
+    /// Keys use camelCase or snake_case and are automatically converted to
+    /// PascalCase Docker API keys via `DockerClient.toDockerKey`.
     @discardableResult
     public func withKwargs(_ kwargs: [String: Any]) -> Self {
         _kwargs.merge(kwargs) { _, new in new }
@@ -223,7 +241,7 @@ public class DockerContainer: WaitStrategyTarget {
         return self
     }
 
-    /// Conditionally adds `platform: 'linux/amd64'` emulation when running on ARM64.
+    /// Conditionally adds `platform: "linux/amd64"` emulation when running on ARM64.
     @discardableResult
     public func maybeEmulateAmd64() -> Self {
         if isArm() && _kwargs["platform"] == nil {
@@ -232,22 +250,36 @@ public class DockerContainer: WaitStrategyTarget {
         return self
     }
 
+    // MARK: - configure() hook
+
+    /// Extension hook called by `start()` just before the container is created.
+    ///
+    /// Override in subclasses to inject additional configuration that depends
+    /// on state set up after construction (for example, setting environment
+    /// variables that are derived from constructor parameters).
+    ///
+    /// The default implementation is a no-op.
+    open func configure() {}
+
     // MARK: - Lifecycle
 
     /// Creates and starts the container, then runs the wait strategy.
     ///
     /// Steps:
     /// 1. Ensures `Reaper` is running (unless Ryuk is disabled).
-    /// 2. Creates the container via `DockerClient.createContainer`.
-    /// 3. Copies any scheduled transferables into the container.
-    /// 4. Starts the container.
-    /// 5. Runs the wait strategy if one was set.
+    /// 2. Calls `configure()` (override hook for subclasses).
+    /// 3. Creates the container via `DockerClient.createContainer`.
+    /// 4. Copies any scheduled transferables into the container.
+    /// 5. Starts the container.
+    /// 6. Runs the wait strategy if one was set.
     @discardableResult
     public func start() async throws -> DockerContainer {
         let isRyuk = image == testcontainersConfig.hubImageNamePrefix + testcontainersConfig.ryukImage
         if !testcontainersConfig.ryukDisabled && !isRyuk {
             _ = try await Reaper.getInstance()
         }
+
+        configure()
 
         let cmdArray: [String]?
         switch _command {
@@ -261,26 +293,29 @@ public class DockerContainer: WaitStrategyTarget {
             throw ContainerStartException("command must be a String or [String]")
         }
 
-        let newId = try await dockerClient.createContainer(
+        let labels = (try? createLabels(image: image)) ?? [:]
+
+        let newId = try await _dockerClient.createContainer(
             image: image,
             command: cmdArray,
             env: _env,
             name: _name,
             ports: _ports,
             volumes: _volumes,
+            tmpfs: _tmpfs.isEmpty ? nil : _tmpfs,
             network: _network?.name,
-            networkAliases: _networkAliases ?? [],
-            labels: (try? createLabels(image: image)) ?? [:],
+            networkAliases: _networkAliases,
+            labels: labels,
             kwargs: _kwargs
         )
-        containerId = newId
+        _containerId = newId
 
         for spec in _transferableSpecs {
-            try await transferIntoContainer(spec.data, spec.destination, spec.mode)
+            try await _transferIntoContainer(spec.data, spec.destination, spec.mode)
         }
 
-        try await dockerClient.startContainer(newId)
-        cachedStatus = "running"
+        try await _dockerClient.startContainer(newId)
+        _cachedStatus = "running"
 
         try await _waitStrategy?.waitUntilReady(target: self)
 
@@ -293,116 +328,144 @@ public class DockerContainer: WaitStrategyTarget {
     ///   - force: Send SIGKILL if still running. Default: `true`.
     ///   - deleteVolume: Remove anonymous volumes. Default: `true`.
     public func stop(force: Bool = true, deleteVolume: Bool = true) async throws {
-        guard let id = containerId else { return }
-        try await dockerClient.removeContainer(id, force: force, removeVolumes: deleteVolume)
+        guard let id = _containerId else { return }
+        try await _dockerClient.removeContainer(id, force: force, removeVolumes: deleteVolume)
     }
 
     // MARK: - WaitStrategyTarget conformance
 
-    public func containerHostIp() -> String {
-        guard containerId != nil else { return "localhost" }
-        return dockerClient.host()
+    public func containerHostIp() async throws -> String {
+        guard let id = _containerId else { return "localhost" }
+        let mode = _dockerClient.connectionMode
+        return switch mode {
+        case .dockerHost: _dockerClient.host
+        case .gatewayIp: try await _dockerClient.gatewayIp(id)
+        case .bridgeIp: try await _dockerClient.bridgeIp(id)
+        }
     }
 
     public func exposedPort(_ port: Int) async throws -> Int {
         try await ContainerStatusWaitStrategy().waitUntilReady(target: self)
-        if dockerClient.connectionMode().useMappedPort {
-            guard let id = containerId else {
+        if _dockerClient.connectionMode.useMappedPort {
+            guard let id = _containerId else {
                 throw ContainerStartException("Container must be started first.")
             }
-            return try await dockerClient.port(containerId: id, port: port)
+            return try await _dockerClient.port(id, port)
         }
         return port
     }
 
-    public func logs() throws -> (stdout: Data, stderr: Data) {
-        guard let id = containerId else {
+    public var wrappedContainer: AnyObject { self }
+
+    public func logs() async throws -> (stdout: Data, stderr: Data) {
+        guard let id = _containerId else {
             throw ContainerStartException("Container must be started first.")
         }
-        // logs() is sync in the protocol but we need async — use semaphore
-        let sema = DispatchSemaphore(value: 0)
-        var result: (Data, Data) = (Data(), Data())
-        var thrownError: Error?
-        Task {
-            do {
-                result = try await dockerClient.getLogs(id)
-            } catch {
-                thrownError = error
-            }
-            sema.signal()
-        }
-        sema.wait()
-        if let e = thrownError { throw e }
-        return (stdout: result.0, stderr: result.1)
+        return try await _dockerClient.logs(id)
     }
 
     public func exec(_ command: [String]) async throws -> (exitCode: Int, output: Data) {
-        guard let id = containerId else {
+        guard let id = _containerId else {
             throw ContainerStartException("Container must be started first.")
         }
-        return try await dockerClient.execInContainer(id, command: command)
+        return try await _dockerClient.execInContainer(id, command: command)
     }
 
-    public func reload() {
-        guard let id = containerId else { return }
-        Task {
-            do {
-                let details = try await dockerClient.getContainerDetails(id)
-                if let state = details["State"] as? [String: Any],
-                   let s = state["Status"] as? String {
-                    cachedStatus = s
-                }
-                cachedContainerInfo = nil
-            } catch {
-                cachedStatus = "unknown"
-            }
-        }
-    }
-
-    public var status: String { cachedStatus }
-
-    // MARK: - Extra API
-
-    /// Returns the underlying `DockerClient` instance.
-    public var dockerClientInstance: DockerClient { dockerClient }
-
-    /// Returns detailed inspect information for this container.
     public func containerInfo() async throws -> ContainerInspectInfo? {
-        if let cached = cachedContainerInfo { return cached }
-        guard let id = containerId else { return nil }
+        if let cached = _cachedContainerInfo { return cached }
+        guard let id = _containerId else { return nil }
         do {
-            let info = try await dockerClient.getContainerInspectInfo(id)
-            cachedContainerInfo = info
+            let info = try await _dockerClient.containerInspectInfo(id)
+            _cachedContainerInfo = info
             return info
         } catch {
             return nil
         }
     }
 
+    public func reload() async {
+        guard let id = _containerId else { return }
+        do {
+            let details = try await _dockerClient.containerDetails(id)
+            if let state = details["State"] as? [String: Any],
+               let s = state["Status"] as? String {
+                _cachedStatus = s
+            }
+            _cachedContainerInfo = nil
+        } catch {
+            _cachedStatus = "unknown"
+        }
+    }
+
+    public var status: String { _cachedStatus }
+
+    // MARK: - Extra API
+
+    /// Returns the underlying `DockerClient` instance.
+    public var dockerClient: DockerClient { _dockerClient }
+
+    /// Runs a shell command string inside the running container.
+    ///
+    /// The `command` string is split into tokens (respecting single- and
+    /// double-quoted groups) and forwarded to `exec(_:)`.
+    public func execShell(_ command: String) async throws -> (exitCode: Int, output: Data) {
+        return try await exec(Self.splitCommand(command))
+    }
+
+    /// Blocks until the container stops and returns its exit code.
+    ///
+    /// Useful for containers that are expected to run to completion (e.g. init
+    /// or migration containers).
+    public func wait() async throws -> Int {
+        guard let id = _containerId else {
+            throw ContainerStartException("Container must be started first.")
+        }
+        return try await _dockerClient.waitContainer(id)
+    }
+
     /// Copies `transferable` into the running container immediately.
+    ///
+    /// Unlike `withCopyIntoContainer` (which schedules the copy for `start()`),
+    /// this method can be called at any point after `start()` returns.
     public func copyIntoContainer(
         _ transferable: Transferable,
         _ destination: String,
         _ mode: Int = kDefaultTransferMode
     ) async throws {
-        try await transferIntoContainer(transferable, destination, mode)
+        try await _transferIntoContainer(transferable, destination, mode)
+    }
+
+    /// Downloads `sourceInContainer` from the container and writes it to
+    /// `destinationOnHost` as a raw tar file.
+    public func copyFromContainer(
+        _ sourceInContainer: String,
+        _ destinationOnHost: String
+    ) async throws {
+        guard let id = _containerId else {
+            throw ContainerStartException("Container must be started first.")
+        }
+        let tarData = try await _dockerClient.archive(id, path: sourceInContainer)
+        try tarData.write(to: URL(fileURLWithPath: destinationOnHost))
     }
 
     // MARK: - Private helpers
 
-    private func transferIntoContainer(
+    private func _transferIntoContainer(
         _ transferable: Transferable,
         _ destination: String,
         _ mode: Int
     ) async throws {
-        guard let id = containerId else {
+        guard let id = _containerId else {
             throw ContainerStartException("Container must be started first.")
         }
         let tarData = try buildTransferTar(transferable, destination: destination, mode: mode)
-        try await dockerClient.putArchive(id, path: "/", tarData: tarData)
+        try await _dockerClient.putArchive(id, path: "/", tarData: tarData)
     }
 
     /// Splits a shell command string into tokens, respecting single and double quotes.
+    ///
+    /// Exposed for testing only. Prefer `withCommand(_:)` with a `[String]`
+    /// for production use.
     public static func splitCommand(_ command: String) -> [String] {
         var result: [String] = []
         var current = ""
@@ -452,11 +515,9 @@ public class DockerContainer: WaitStrategyTarget {
 
 private func expandVars(_ value: String, using resolved: [String: String]) -> String {
     var result = value
-    // Match ${VAR} patterns
     let pattern = try? NSRegularExpression(pattern: #"\$\{([^}]+)\}"#)
     guard let regex = pattern else { return value }
     let matches = regex.matches(in: value, range: NSRange(value.startIndex..., in: value))
-    // Process in reverse order to preserve offsets
     for match in matches.reversed() {
         let fullRange = match.range(at: 0)
         let varRange = match.range(at: 1)
@@ -519,9 +580,9 @@ public final actor Reaper {
         let cfg = testcontainersConfig
         let ryukContainer = DockerContainer(cfg.ryukImage)
             .withName("testcontainers-ryuk-\(sessionId)")
-            .withExposedPorts(8080)
+            .withExposedPorts([8080])
             .withVolumeMapping(cfg.ryukDockerSocket, "/var/run/docker.sock", "rw")
-            .withKwargs(["privileged": cfg.ryukPrivileged, "autoRemove": true])
+            .withKwargs(["privileged": cfg.ryukPrivileged, "auto_remove": true])
             .withEnv("RYUK_RECONNECTION_TIMEOUT", cfg.ryukReconnectionTimeout)
             .waitingFor(
                 LogMessageWaitStrategy(".* Started!")
@@ -530,7 +591,7 @@ public final actor Reaper {
 
         try await ryukContainer.start()
 
-        let containerHost = ryukContainer.containerHostIp()
+        let containerHost = try await ryukContainer.containerHostIp()
         let containerPort = try await ryukContainer.exposedPort(8080)
 
         if containerHost.isEmpty || containerPort == 0 {
@@ -562,7 +623,8 @@ public final actor Reaper {
             throw ContainerConnectException("Failed to connect to Ryuk: invalid socket")
         }
 
-        // Send session-ID label registration message
+        // Send session-ID label registration message exactly as the Ryuk
+        // protocol requires: 'label=org.testcontainers.session-id=<uuid>\r\n'
         let msg = "label=\(labelSessionId)=\(sessionId)\r\n"
         let msgData = Data(msg.utf8)
         msgData.withUnsafeBytes { ptr in
@@ -599,7 +661,6 @@ private func connectTCP(host: String, port: Int) throws -> Int32 {
         throw ContainerConnectException("socket() failed")
     }
 
-    // Set 1-second connect timeout via SO_SNDTIMEO
     var tv = timeval(tv_sec: 1, tv_usec: 0)
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
 

@@ -15,7 +15,7 @@ import FoundationNetworking
 
 /// Describes a volume or bind mount to attach to a container.
 public struct MountConfig {
-    /// The host path (or named volume) to mount.
+    /// The container-side bind path.
     public let hostPath: String
     /// Access mode: `"ro"` for read-only, `"rw"` for read-write.
     public let mode: String
@@ -26,29 +26,49 @@ public struct MountConfig {
     }
 }
 
-/// Returns the `DOCKER_HOST` environment variable value, or `nil`.
-public func getDockerHost() -> String? {
-    ProcessInfo.processInfo.environment["DOCKER_HOST"]
+// MARK: - Free functions (Dart-compatible naming)
+
+/// Returns the effective Docker host from the configuration or environment.
+///
+/// Resolution order:
+/// 1. `tc.host` key in `~/.testcontainers.properties`
+/// 2. `DOCKER_HOST` environment variable
+///
+/// Returns `nil` when neither source is set.
+public func dockerHost() -> String? {
+    let host = testcontainersConfig.tcHost ?? ProcessInfo.processInfo.environment["DOCKER_HOST"]
+    guard let h = host else { return nil }
+    return sanitizeDockerHost(h)
 }
 
-/// Extracts the hostname from a `ssh://user@host` Docker host URL, or `nil`.
-public func getDockerHostHostname() -> String? {
-    guard let dockerHost = getDockerHost(), dockerHost.hasPrefix("ssh://") else { return nil }
-    let withoutScheme = String(dockerHost.dropFirst("ssh://".count))
-    // Strip optional user@
-    let hostPart = withoutScheme.components(separatedBy: "@").last ?? withoutScheme
-    // Strip port if present
-    return hostPart.components(separatedBy: ":").first
+private func sanitizeDockerHost(_ host: String) -> String {
+    guard host.hasPrefix("ssh://") else { return host }
+    // Remove trailing path from SSH URLs
+    guard var comps = URLComponents(string: host) else { return host }
+    if !(comps.path.isEmpty) {
+        comps.path = ""
+    }
+    return comps.string ?? host
 }
 
-/// Returns `true` when `DOCKER_HOST` starts with `ssh://`.
+/// Returns the hostname portion of an SSH-based Docker host URL.
+///
+/// For example, `ssh://user@myhost.example.com` returns `"myhost.example.com"`.
+/// Returns `nil` when `dockerHost()` is not an SSH URL or the host component is empty.
+public func dockerHostHostname() -> String? {
+    guard let rawHost = dockerHost(), rawHost.hasPrefix("ssh://") else { return nil }
+    guard let uri = URLComponents(string: rawHost), !uri.host!.isEmpty else { return nil }
+    return URLComponents(string: rawHost)?.host
+}
+
+/// Returns `true` when the Docker host is reached via SSH.
 public func isSshDockerHost() -> Bool {
-    getDockerHost()?.hasPrefix("ssh://") ?? false
+    return dockerHostHostname() != nil
 }
 
-/// Returns the `DOCKER_AUTH_CONFIG` environment variable value, or `nil`.
-public func getDockerAuthConfig() -> String? {
-    ProcessInfo.processInfo.environment["DOCKER_AUTH_CONFIG"]
+/// Returns the raw `DOCKER_AUTH_CONFIG` string, or `nil`.
+public func dockerAuthConfig() -> String? {
+    return testcontainersConfig.dockerAuthConfig
 }
 
 // MARK: - DockerClient
@@ -62,12 +82,10 @@ public class DockerClient {
     private let baseURL: String
     private let _socketPath: String
 
-    /// Creates a `DockerClient`.
+    /// Creates a `DockerClient` from the environment.
     ///
-    /// - Parameters:
-    ///   - socketPath: Path to the Docker Unix socket.
-    ///   - tcpHost: Optional TCP host (e.g. `"tcp://192.168.99.100:2376"`). When set,
-    ///     overrides the Unix socket.
+    /// If `DOCKER_AUTH_CONFIG` is set, the first registry entry is used to
+    /// perform an implicit login.
     public init(
         socketPath: String = testcontainersConfig.ryukDockerSocket,
         tcpHost: String? = nil
@@ -80,11 +98,26 @@ public class DockerClient {
             self.baseURL = normalized
             self.httpClient = HTTPClient(eventLoopGroupProvider: .singleton)
         } else {
-            // Percent-encode the socket path for the unix+http URL scheme
             let encoded = socketPath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? socketPath
             self.baseURL = "http+unix://\(encoded)"
             self.httpClient = HTTPClient(eventLoopGroupProvider: .singleton)
         }
+        // Trigger auth if configured
+        if let authConfig = dockerAuthConfig() {
+            if let auth = try? parseDockerAuthConfig(authConfig), let first = auth.first {
+                Task { try? await self.login(auth: first) }
+            }
+        }
+    }
+
+    /// Creates a `DockerClient` with no real socket connection.
+    ///
+    /// The socket path is set to a non-existent path so that any method that
+    /// tries to make an actual Docker API call will fail immediately. This
+    /// constructor exists solely to enable unit tests of pure parsing logic
+    /// (e.g. `decodeChunked`, `stripDockerLogHeaders`) without a Docker daemon.
+    public static func testOnly() -> DockerClient {
+        return DockerClient(socketPath: "/dev/null")
     }
 
     deinit {
@@ -101,28 +134,35 @@ public class DockerClient {
     // MARK: - Connection mode
 
     /// Returns the effective connection mode for this client.
-    public func connectionMode() -> ConnectionMode {
+    public var connectionMode: ConnectionMode {
         if let override = testcontainersConfig.connectionModeOverride { return override }
-        if insideContainer() { return .bridgeIp }
-        if let dh = getDockerHost(), dh.hasPrefix("ssh://") { return .gatewayIp }
-        return .dockerHost
+        let localhosts: Set<String> = ["localhost", "127.0.0.1", "::1"]
+        if !insideContainer() || !localhosts.contains(host) {
+            return .dockerHost
+        }
+        if runningContainerId() != nil { return .bridgeIp }
+        return .gatewayIp
     }
 
     /// Returns the host address used to reach containers from the test process.
-    public func host() -> String {
-        if let tcHost = testcontainersConfig.tcHost { return tcHost }
+    public var host: String {
         if let override = testcontainersConfig.tcHostOverride { return override }
-        switch connectionMode() {
-        case .bridgeIp:
-            return "172.17.0.1"  // docker0 default gateway
-        case .gatewayIp:
-            return defaultGatewayIp() ?? "172.17.0.1"
-        case .dockerHost:
-            if let dh = getDockerHost(), dh.hasPrefix("ssh://") {
-                return getDockerHostHostname() ?? "localhost"
+
+        if let sshHost = dockerHostHostname() { return sshHost }
+
+        if let rawHost = dockerHost() {
+            if rawHost.hasPrefix("tcp://") || rawHost.hasPrefix("http://") || rawHost.hasPrefix("https://") {
+                let uri = URLComponents(string: rawHost)
+                let h = uri?.host ?? ""
+                if h.isEmpty || (h == "localnpipe" && isWindows()) { return "localhost" }
+                return h
             }
-            return "localhost"
         }
+
+        if insideContainer() {
+            if let gw = defaultGatewayIp() { return gw }
+        }
+        return "localhost"
     }
 
     // MARK: - Private HTTP helpers
@@ -147,6 +187,7 @@ public class DockerClient {
         req.method = method
 
         req.headers.add(name: "Host", value: "localhost")
+        req.headers.add(name: "x-tc-sid", value: sessionId)
 
         if let body = body {
             let data = try JSONSerialization.data(withJSONObject: body)
@@ -168,22 +209,42 @@ public class DockerClient {
         return (statusCode: Int(response.status.code), body: collected)
     }
 
-    private func json(from data: Data) throws -> Any {
-        try JSONSerialization.jsonObject(with: data)
-    }
-
     private func jsonObject(from data: Data) throws -> [String: Any] {
-        guard let obj = try json(from: data) as? [String: Any] else {
+        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw DockerClientError.unexpectedResponse("Expected JSON object")
         }
         return obj
     }
 
     private func jsonArray(from data: Data) throws -> [[String: Any]] {
-        guard let arr = try json(from: data) as? [[String: Any]] else {
+        guard let arr = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             throw DockerClientError.unexpectedResponse("Expected JSON array")
         }
         return arr
+    }
+
+    // MARK: - toDockerKey
+
+    /// Converts a Swift camelCase or snake_case key to the Docker API's PascalCase convention.
+    ///
+    /// Known special cases (`privileged`, `auto_remove`, `autoRemove`, `platform`) are
+    /// mapped explicitly. All other keys have their first character upper-cased.
+    ///
+    /// Exposed for unit testing.
+    public static func toDockerKey(_ dartKey: String) -> String {
+        return _toDockerKey(dartKey)
+    }
+
+    private static func _toDockerKey(_ key: String) -> String {
+        if key.isEmpty { return key }
+        switch key {
+        case "privileged": return "Privileged"
+        case "auto_remove", "autoRemove": return "AutoRemove"
+        case "platform": return "Platform"
+        default:
+            let first = key.prefix(1).uppercased()
+            return first + key.dropFirst()
+        }
     }
 
     // MARK: - Container lifecycle
@@ -196,56 +257,66 @@ public class DockerClient {
         name: String? = nil,
         ports: [Int: Int?] = [:],
         volumes: [String: MountConfig] = [:],
+        tmpfs: [String: String]? = nil,
         network: String? = nil,
-        networkAliases: [String] = [],
+        networkAliases: [String]? = nil,
         labels: [String: String] = [:],
         kwargs: [String: Any] = [:]
     ) async throws -> String {
         var body: [String: Any] = ["Image": image]
 
         if let cmd = command { body["Cmd"] = cmd }
-        if !env.isEmpty { body["Env"] = env.map { "\($0.key)=\($0.value)" } }
-        if !labels.isEmpty { body["Labels"] = labels }
+        body["Env"] = env.map { "\($0.key)=\($0.value)" }
+        body["Labels"] = labels
 
         // ExposedPorts
-        if !ports.isEmpty {
-            var exposed: [String: Any] = [:]
-            for p in ports.keys { exposed["\(p)/tcp"] = [:] as [String: Any] }
-            body["ExposedPorts"] = exposed
-        }
+        var exposed: [String: Any] = [:]
+        for p in ports.keys { exposed["\(p)/tcp"] = [:] as [String: Any] }
+        if !exposed.isEmpty { body["ExposedPorts"] = exposed }
 
         // HostConfig
         var hostConfig: [String: Any] = [:]
-        if !ports.isEmpty {
-            var portBindings: [String: Any] = [:]
-            for (container, host) in ports {
-                let binding: [String: String]
-                if let h = host {
-                    binding = ["HostPort": "\(h)"]
-                } else {
-                    binding = ["HostPort": ""]
-                }
-                portBindings["\(container)/tcp"] = [binding]
+        var portBindings: [String: Any] = [:]
+        for (container, hostPort) in ports {
+            let binding: [String: String]
+            if let h = hostPort {
+                binding = ["HostIp": "", "HostPort": "\(h)"]
+            } else {
+                binding = ["HostIp": "", "HostPort": ""]
             }
-            hostConfig["PortBindings"] = portBindings
+            portBindings["\(container)/tcp"] = [binding]
         }
+        if !portBindings.isEmpty { hostConfig["PortBindings"] = portBindings }
+
         if !volumes.isEmpty {
-            // Format: hostPath:containerPath:mode (Docker convention)
-            // Key = host path, MountConfig.hostPath = container bind path
             hostConfig["Binds"] = volumes.map { "\($0.key):\($0.value.hostPath):\($0.value.mode)" }
         }
-        if let priv = kwargs["privileged"] as? Bool { hostConfig["Privileged"] = priv }
-        if let ar = kwargs["autoRemove"] as? Bool { hostConfig["AutoRemove"] = ar }
-        if let mem = kwargs["memLimit"] as? Int { hostConfig["Memory"] = mem }
-        if let platform = kwargs["platform"] as? String { body["Platform"] = platform }
+
+        if let tmpfsMap = tmpfs, !tmpfsMap.isEmpty {
+            hostConfig["Tmpfs"] = tmpfsMap
+        }
+
+        if let netName = network {
+            hostConfig["NetworkMode"] = netName
+        }
+
+        // Apply all kwargs → converted to Docker PascalCase keys
+        for (k, v) in kwargs {
+            hostConfig[Self._toDockerKey(k)] = v
+        }
+
         if !hostConfig.isEmpty { body["HostConfig"] = hostConfig }
 
         // NetworkingConfig
-        if let netName = network {
+        if let netName = network, let aliases = networkAliases, !aliases.isEmpty {
             body["NetworkingConfig"] = [
                 "EndpointsConfig": [
-                    netName: networkAliases.isEmpty ? [:] as [String: Any] : ["Aliases": networkAliases],
+                    netName: ["Aliases": aliases],
                 ],
+            ]
+        } else if let netName = network {
+            body["NetworkingConfig"] = [
+                "EndpointsConfig": [netName: [:] as [String: Any]],
             ]
         }
 
@@ -296,26 +367,26 @@ public class DockerClient {
     }
 
     /// Removes a Docker image.
-    public func removeImage(_ id: String, force: Bool = false, noPrune: Bool = false) async throws {
-        var query: [String: String] = [:]
-        if force { query["force"] = "1" }
-        if noPrune { query["noprune"] = "1" }
+    public func removeImage(_ id: String, force: Bool = true, noPrune: Bool = false) async throws {
         let (statusCode, _) = try await request(
             method: .DELETE,
             path: "/v1.41/images/\(id)",
-            query: query
+            query: ["force": force ? "true" : "false", "noprune": noPrune ? "true" : "false"]
         )
-        guard statusCode == 200 || statusCode == 204 else {
+        guard statusCode == 200 || statusCode == 404 else {
             throw DockerClientError.apiError(statusCode, "removeImage failed")
         }
     }
 
     /// Pulls a Docker image.
     public func pullImage(_ image: String) async throws {
+        let parts = image.split(separator: ":")
+        let fromImage = String(parts.first ?? Substring(image))
+        let tag = parts.count > 1 ? String(parts.last!) : "latest"
         let (statusCode, _) = try await request(
             method: .POST,
             path: "/v1.41/images/create",
-            query: ["fromImage": image]
+            query: ["fromImage": fromImage, "tag": tag]
         )
         guard statusCode == 200 else {
             throw DockerClientError.apiError(statusCode, "pull failed")
@@ -323,8 +394,8 @@ public class DockerClient {
     }
 
     /// Returns the host port mapped to `port` on container `containerId`.
-    public func port(containerId: String, port: Int) async throws -> Int {
-        let details = try await getContainerDetails(containerId)
+    public func port(_ containerId: String, _ port: Int) async throws -> Int {
+        let details = try await containerDetails(containerId)
         let networkSettings = details["NetworkSettings"] as? [String: Any]
         let ports = networkSettings?["Ports"] as? [String: Any]
         let key = "\(port)/tcp"
@@ -337,8 +408,8 @@ public class DockerClient {
         throw DockerClientError.portNotFound(port)
     }
 
-    /// Returns all containers.
-    public func getContainers(all: Bool = false, filters: [String: Any]? = nil) async throws -> [[String: Any]] {
+    /// Lists containers.
+    public func containers(all: Bool = false, filters: [String: Any]? = nil) async throws -> [[String: Any]] {
         var query: [String: String] = ["all": all ? "true" : "false"]
         if let f = filters,
            let data = try? JSONSerialization.data(withJSONObject: f),
@@ -353,7 +424,7 @@ public class DockerClient {
     }
 
     /// Returns raw container details (`GET /containers/{id}/json`).
-    public func getContainerDetails(_ id: String) async throws -> [String: Any] {
+    public func containerDetails(_ id: String) async throws -> [String: Any] {
         let (statusCode, body) = try await request(method: .GET, path: "/v1.41/containers/\(id)/json")
         guard statusCode == 200 else {
             throw DockerClientError.apiError(statusCode, String(data: body, encoding: .utf8) ?? "")
@@ -363,30 +434,24 @@ public class DockerClient {
 
     /// Returns the bridge network IP of a container.
     public func bridgeIp(_ id: String) async throws -> String {
-        let details = try await getContainerDetails(id)
-        let ns = details["NetworkSettings"] as? [String: Any]
-        if let networks = ns?["Networks"] as? [String: Any],
-           let bridge = networks["bridge"] as? [String: Any],
-           let ip = bridge["IPAddress"] as? String,
-           !ip.isEmpty {
-            return ip
-        }
-        if let ip = ns?["IPAddress"] as? String, !ip.isEmpty { return ip }
-        throw DockerClientError.unexpectedResponse("Could not get bridge IP for \(id)")
+        let details = try await containerDetails(id)
+        let networkSettings = details["NetworkSettings"] as? [String: Any]
+        let networkMode = (details["HostConfig"] as? [String: Any])?["NetworkMode"] as? String ?? "bridge"
+        let networkName = networkMode == "default" ? "bridge" : networkMode
+        let networks = networkSettings?["Networks"] as? [String: Any]
+        let network = networks?[networkName] as? [String: Any]
+        return (network?["IPAddress"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"
     }
 
     /// Returns the gateway IP of a container's default network.
     public func gatewayIp(_ id: String) async throws -> String {
-        let details = try await getContainerDetails(id)
-        let ns = details["NetworkSettings"] as? [String: Any]
-        if let networks = ns?["Networks"] as? [String: Any],
-           let bridge = networks["bridge"] as? [String: Any],
-           let gw = bridge["Gateway"] as? String,
-           !gw.isEmpty {
-            return gw
-        }
-        if let gw = ns?["Gateway"] as? String, !gw.isEmpty { return gw }
-        throw DockerClientError.unexpectedResponse("Could not get gateway IP for \(id)")
+        let details = try await containerDetails(id)
+        let networkSettings = details["NetworkSettings"] as? [String: Any]
+        let networkMode = (details["HostConfig"] as? [String: Any])?["NetworkMode"] as? String ?? "bridge"
+        let networkName = networkMode == "default" ? "bridge" : networkMode
+        let networks = networkSettings?["Networks"] as? [String: Any]
+        let network = networks?[networkName] as? [String: Any]
+        return (network?["Gateway"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"
     }
 
     /// Authenticates against a Docker registry.
@@ -397,7 +462,7 @@ public class DockerClient {
             "password": auth.password,
         ]
         let (statusCode, respBody) = try await request(method: .POST, path: "/v1.41/auth", body: body)
-        guard statusCode == 200 else {
+        guard statusCode == 200 || statusCode == 204 else {
             throw DockerClientError.apiError(statusCode, String(data: respBody, encoding: .utf8) ?? "")
         }
     }
@@ -406,8 +471,13 @@ public class DockerClient {
 
     /// Creates a Docker network and returns its ID.
     public func createNetwork(_ name: String, options: [String: Any]? = nil) async throws -> String {
-        var body: [String: Any] = ["Name": name]
-        if let opts = options { body["Options"] = opts }
+        var body: [String: Any] = [
+            "Name": name,
+            "Labels": (try? createLabels(image: "")) ?? [:],
+        ]
+        if let opts = options {
+            for (k, v) in opts { body[k] = v }
+        }
         let (statusCode, respBody) = try await request(method: .POST, path: "/v1.41/networks/create", body: body)
         guard statusCode == 201 else {
             throw DockerClientError.apiError(statusCode, String(data: respBody, encoding: .utf8) ?? "")
@@ -428,17 +498,17 @@ public class DockerClient {
     }
 
     /// Connects a container to a network.
-    public func connectNetwork(_ networkId: String, containerId: String, aliases: [String] = []) async throws {
+    public func connectNetwork(_ networkId: String, _ containerId: String, aliases: [String]? = nil) async throws {
         var body: [String: Any] = ["Container": containerId]
-        if !aliases.isEmpty {
-            body["EndpointConfig"] = ["Aliases": aliases]
+        if let a = aliases, !a.isEmpty {
+            body["EndpointConfig"] = ["Aliases": a]
         }
         let (statusCode, respBody) = try await request(
             method: .POST,
             path: "/v1.41/networks/\(networkId)/connect",
             body: body
         )
-        guard statusCode == 200 else {
+        guard statusCode == 200 || statusCode == 204 else {
             throw DockerClientError.apiError(statusCode, String(data: respBody, encoding: .utf8) ?? "")
         }
     }
@@ -447,24 +517,22 @@ public class DockerClient {
 
     /// Runs a command inside a running container and returns (exitCode, output).
     public func execInContainer(_ id: String, command: [String]) async throws -> (exitCode: Int, output: Data) {
-        // Create exec
         let createBody: [String: Any] = [
             "AttachStdout": true,
             "AttachStderr": true,
             "Cmd": command,
         ]
-        let (createStatus, createBody_) = try await request(
+        let (createStatus, createRespBody) = try await request(
             method: .POST, path: "/v1.41/containers/\(id)/exec", body: createBody
         )
         guard createStatus == 201 else {
-            throw DockerClientError.apiError(createStatus, String(data: createBody_, encoding: .utf8) ?? "")
+            throw DockerClientError.apiError(createStatus, String(data: createRespBody, encoding: .utf8) ?? "")
         }
-        let createJson = try jsonObject(from: createBody_)
+        let createJson = try jsonObject(from: createRespBody)
         guard let execId = createJson["Id"] as? String else {
             throw DockerClientError.unexpectedResponse("No exec Id")
         }
 
-        // Start exec
         let startBody: [String: Any] = ["Detach": false, "Tty": false]
         let (startStatus, output) = try await request(
             method: .POST, path: "/v1.41/exec/\(execId)/start", body: startBody
@@ -473,7 +541,6 @@ public class DockerClient {
             throw DockerClientError.apiError(startStatus, String(data: output, encoding: .utf8) ?? "")
         }
 
-        // Inspect to get exit code
         let (inspectStatus, inspectBody) = try await request(
             method: .GET, path: "/v1.41/exec/\(execId)/json"
         )
@@ -483,13 +550,13 @@ public class DockerClient {
         let inspectJson = try jsonObject(from: inspectBody)
         let exitCode = inspectJson["ExitCode"] as? Int ?? 0
 
-        return (exitCode: exitCode, output: stripDockerMultiplexHeader(output))
+        return (exitCode: exitCode, output: _stripDockerLogHeaders(output))
     }
 
     // MARK: - Inspect
 
     /// Returns a typed `ContainerInspectInfo` for the given container ID.
-    public func getContainerInspectInfo(_ id: String) async throws -> ContainerInspectInfo {
+    public func containerInspectInfo(_ id: String) async throws -> ContainerInspectInfo {
         let (statusCode, body) = try await request(method: .GET, path: "/v1.41/containers/\(id)/json")
         guard statusCode == 200 else {
             throw DockerClientError.apiError(statusCode, String(data: body, encoding: .utf8) ?? "")
@@ -508,13 +575,13 @@ public class DockerClient {
             rawBody: tarData,
             headers: ["Content-Type": "application/x-tar"]
         )
-        guard statusCode == 200 else {
+        guard statusCode == 200 || statusCode == 204 else {
             throw DockerClientError.apiError(statusCode, String(data: body, encoding: .utf8) ?? "")
         }
     }
 
     /// Downloads a tar archive from a container path.
-    public func getArchive(_ id: String, path: String) async throws -> Data {
+    public func archive(_ id: String, path: String) async throws -> Data {
         let (statusCode, body) = try await request(
             method: .GET,
             path: "/v1.41/containers/\(id)/archive",
@@ -526,36 +593,60 @@ public class DockerClient {
         return body
     }
 
-    // MARK: - Logs
+    // MARK: - Wait
 
-    /// Returns the stdout and stderr logs of a container.
-    public func getLogs(_ id: String) async throws -> (stdout: Data, stderr: Data) {
-        let (statusCode, body) = try await request(
-            method: .GET,
-            path: "/v1.41/containers/\(id)/logs",
-            query: ["stdout": "true", "stderr": "true"]
-        )
+    /// Blocks until the container stops and returns its exit code.
+    public func waitContainer(_ id: String) async throws -> Int {
+        let (statusCode, body) = try await request(method: .POST, path: "/v1.41/containers/\(id)/wait")
         guard statusCode == 200 else {
             throw DockerClientError.apiError(statusCode, String(data: body, encoding: .utf8) ?? "")
         }
-        return demuxDockerLogs(body)
+        let json = try jsonObject(from: body)
+        return json["StatusCode"] as? Int ?? 0
+    }
+
+    // MARK: - Logs
+
+    /// Returns the stdout and stderr logs of a container as separate byte arrays.
+    public func logs(_ id: String) async throws -> (stdout: Data, stderr: Data) {
+        let (stdoutStatus, stdoutBody) = try await request(
+            method: .GET,
+            path: "/v1.41/containers/\(id)/logs",
+            query: ["stdout": "true", "stderr": "false"]
+        )
+        guard stdoutStatus == 200 else {
+            throw DockerClientError.apiError(stdoutStatus, String(data: stdoutBody, encoding: .utf8) ?? "")
+        }
+        let (stderrStatus, stderrBody) = try await request(
+            method: .GET,
+            path: "/v1.41/containers/\(id)/logs",
+            query: ["stdout": "false", "stderr": "true"]
+        )
+        guard stderrStatus == 200 else {
+            throw DockerClientError.apiError(stderrStatus, String(data: stderrBody, encoding: .utf8) ?? "")
+        }
+        return (stdout: _stripDockerLogHeaders(stdoutBody), stderr: _stripDockerLogHeaders(stderrBody))
     }
 
     // MARK: - Image operations
 
     /// Builds a Docker image from a local context directory.
+    ///
+    /// Returns `(imageId, logs)` where `imageId` is the built image's ID
+    /// (or the `tag` string when the ID cannot be parsed) and `logs` is the
+    /// streaming build log as a list of JSON objects.
     public func buildImage(
         contextPath: String,
         tag: String? = nil,
         noCache: Bool = false,
         dockerfile: String? = nil
-    ) async throws -> String {
-        // Build tar of the context directory
+    ) async throws -> (String, [[String: Any]]) {
         let contextURL = URL(fileURLWithPath: contextPath)
         let tarData = try buildTransferTar(.path(contextURL), destination: ".")
 
-        var query: [String: String] = ["nocache": noCache ? "1" : "0"]
+        var query: [String: String] = [:]
         if let t = tag { query["t"] = t }
+        if noCache { query["nocache"] = "true" }
         if let df = dockerfile { query["dockerfile"] = df }
 
         let (statusCode, body) = try await request(
@@ -568,67 +659,108 @@ public class DockerClient {
         guard statusCode == 200 else {
             throw DockerClientError.apiError(statusCode, String(data: body, encoding: .utf8) ?? "")
         }
-        // Extract image ID from build stream
+        var imageId: String?
+        var buildLogs: [[String: Any]] = []
         let responseText = String(data: body, encoding: .utf8) ?? ""
         for line in responseText.components(separatedBy: "\n") {
-            if let data = line.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let aux = json["aux"] as? [String: Any],
-               let idStr = aux["ID"] as? String {
-                return idStr
+            guard !line.isEmpty else { continue }
+            if let lineData = line.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] {
+                buildLogs.append(parsed)
+                if let aux = parsed["aux"] as? [String: Any],
+                   let idStr = aux["ID"] as? String {
+                    imageId = idStr
+                }
             }
         }
-        return tag ?? ""
+        return (imageId ?? tag ?? "", buildLogs)
     }
-}
 
-// MARK: - Docker multiplexed stream helpers
+    // MARK: - Private log helpers
 
-/// Strips the 8-byte Docker multiplexed-stream header from exec/log output.
-///
-/// The Docker exec attach API prefixes each frame with an 8-byte header:
-/// `[stream_type(1)] [0 0 0] [size(4 big-endian)]`
-func stripDockerMultiplexHeader(_ data: Data) -> Data {
-    var result = Data()
-    var offset = 0
-    while offset + 8 <= data.count {
-        let size = Int(data[offset + 4]) << 24
-            | Int(data[offset + 5]) << 16
-            | Int(data[offset + 6]) << 8
-            | Int(data[offset + 7])
-        offset += 8
-        if offset + size <= data.count {
-            result.append(data[offset..<offset + size])
-            offset += size
-        } else {
-            break
+    /// Removes Docker's 8-byte multiplexed log frame headers from `data`.
+    private func _stripDockerLogHeaders(_ data: Data) -> Data {
+        var result = Data()
+        var pos = 0
+        while pos + 8 <= data.count {
+            let size = Int(data[pos + 4]) << 24
+                | Int(data[pos + 5]) << 16
+                | Int(data[pos + 6]) << 8
+                | Int(data[pos + 7])
+            pos += 8
+            if pos + size <= data.count {
+                result.append(data[pos..<pos + size])
+                pos += size
+            } else {
+                break
+            }
         }
+        return result.isEmpty ? data : result
     }
-    return result.isEmpty ? data : result
-}
 
-/// Demultiplexes Docker log stream into separate stdout and stderr.
-func demuxDockerLogs(_ data: Data) -> (stdout: Data, stderr: Data) {
-    var stdout = Data()
-    var stderr = Data()
-    var offset = 0
-    while offset + 8 <= data.count {
-        let streamType = data[offset]
-        let size = Int(data[offset + 4]) << 24
-            | Int(data[offset + 5]) << 16
-            | Int(data[offset + 6]) << 8
-            | Int(data[offset + 7])
-        offset += 8
-        if offset + size <= data.count {
-            let chunk = data[offset..<offset + size]
-            if streamType == 1 { stdout.append(chunk) }
-            else if streamType == 2 { stderr.append(chunk) }
-            offset += size
-        } else {
-            break
-        }
+    // MARK: - Testable helpers (mirrors Dart's @visibleForTesting)
+
+    /// Exposed for unit testing — strips Docker multiplexed log headers.
+    public func stripDockerLogHeaders(_ data: Data) -> Data {
+        return _stripDockerLogHeaders(data)
     }
-    return (stdout: stdout, stderr: stderr)
+
+    /// Exposed for unit testing — decodes HTTP chunked-transfer-encoded body.
+    public func decodeChunked(_ data: Data) -> Data {
+        return _decodeChunked(data)
+    }
+
+    private func _decodeChunked(_ data: Data) -> Data {
+        var result = Data()
+        var pos = 0
+        while pos < data.count {
+            // Find CRLF
+            var lineEnd = -1
+            for i in pos..<(data.count - 1) {
+                if data[i] == 13 && data[i + 1] == 10 {
+                    lineEnd = i
+                    break
+                }
+            }
+            guard lineEnd >= 0 else { break }
+            let sizeStr = String(data: data[pos..<lineEnd], encoding: .utf8)?.trimmingCharacters(in: .whitespaces) ?? ""
+            let size = Int(sizeStr, radix: 16) ?? 0
+            if size == 0 { break }
+            pos = lineEnd + 2
+            if pos + size > data.count { break }
+            result.append(data[pos..<pos + size])
+            pos += size + 2 // skip trailing CRLF
+        }
+        return result
+    }
+
+    /// Exposed for unit testing — parses a raw HTTP/1.0 response byte buffer.
+    public func parseHttpResponse(_ bytes: Data) -> (statusCode: Int, headers: [String: String], body: Data) {
+        let raw = String(data: bytes, encoding: .utf8) ?? ""
+        guard let headerEnd = raw.range(of: "\r\n\r\n") else {
+            return (statusCode: 500, headers: [:], body: bytes)
+        }
+        let headerSection = String(raw[raw.startIndex..<headerEnd.lowerBound])
+        let lines = headerSection.components(separatedBy: "\r\n")
+        let statusParts = lines.first?.components(separatedBy: " ") ?? []
+        let statusCode = statusParts.count > 1 ? Int(statusParts[1]) ?? 500 : 500
+
+        var responseHeaders: [String: String] = [:]
+        for line in lines.dropFirst() {
+            guard let idx = line.firstIndex(of: ":") else { continue }
+            let key = line[line.startIndex..<idx].trimmingCharacters(in: .whitespaces).lowercased()
+            let value = line[line.index(after: idx)...].trimmingCharacters(in: .whitespaces)
+            responseHeaders[key] = value
+        }
+
+        let bodyStartOffset = bytes.count - (raw.count - raw.distance(from: raw.startIndex, to: headerEnd.upperBound))
+        let bodyBytes = bodyStartOffset <= bytes.count ? bytes[bodyStartOffset...] : Data()
+        let bodyData = responseHeaders["transfer-encoding"] == "chunked"
+            ? _decodeChunked(Data(bodyBytes))
+            : Data(bodyBytes)
+
+        return (statusCode: statusCode, headers: responseHeaders, body: bodyData)
+    }
 }
 
 // MARK: - Errors

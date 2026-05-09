@@ -75,13 +75,14 @@ public class DockerImage {
     /// `POST /build` endpoint. The resulting image ID is stored in `shortId`.
     @discardableResult
     public func build() async throws -> DockerImage {
-        let id = try await dockerClient.buildImage(
+        let (id, logs) = try await dockerClient.buildImage(
             contextPath: path,
             tag: tag,
             noCache: noCache,
             dockerfile: dockerfilePath
         )
         imageId = id
+        buildLogs = logs
         return self
     }
 
@@ -97,9 +98,7 @@ public class DockerImage {
     ///
     /// Each element is a dictionary decoded from one line of the streaming build
     /// response. Empty before `build()` is called.
-    public func getLogs() -> [[String: Any]] {
-        return buildLogs
-    }
+    public var logs: [[String: Any]] { buildLogs }
 
     /// Builds `image`, runs `fn` with it, and removes it afterwards.
     ///

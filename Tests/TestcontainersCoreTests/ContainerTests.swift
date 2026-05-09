@@ -26,7 +26,7 @@ struct DockerContainerBuilderTests {
     }
 
     @Test func withExposedPortsExposesWithNullHostPort() {
-        let c = DockerContainer("nginx:alpine").withExposedPorts(80, 443)
+        let c = DockerContainer("nginx:alpine").withExposedPorts([80, 443])
         #expect(c.ports[80]! == nil)
         #expect(c.ports[443]! == nil)
     }
@@ -159,7 +159,7 @@ struct DockerContainerBuilderTests {
     }
 
     @Test func withNetworkAliasesSetsAliases() {
-        let c = DockerContainer("alpine").withNetworkAliases("alias1", "alias2")
+        let c = DockerContainer("alpine").withNetworkAliases(["alias1", "alias2"])
         #expect(c.networkAliases == ["alias1", "alias2"])
     }
 
@@ -228,14 +228,15 @@ struct SplitCommandTests {
 
 @Suite("DockerContainer WaitStrategyTarget before start")
 struct ContainerPreStartTests {
-    @Test func containerHostIpReturnsLocalhostBeforeStart() {
+    @Test func containerHostIpReturnsLocalhostBeforeStart() async throws {
         let c = DockerContainer("alpine")
-        #expect(c.containerHostIp() == "localhost")
+        let ip = try await c.containerHostIp()
+        #expect(ip == "localhost")
     }
 
-    @Test func reloadCompletesWithoutErrorBeforeStart() {
+    @Test func reloadCompletesWithoutErrorBeforeStart() async {
         let c = DockerContainer("alpine")
-        c.reload() // should not crash
+        await c.reload() // should not crash
     }
 
     @Test func statusReturnsNotStartedBeforeStart() {
@@ -243,10 +244,10 @@ struct ContainerPreStartTests {
         #expect(c.status == "not_started")
     }
 
-    @Test func logsThrowsBeforeStart() {
+    @Test func logsThrowsBeforeStart() async {
         let c = DockerContainer("alpine")
-        #expect(throws: ContainerStartException.self) {
-            _ = try c.logs()
+        await #expect(throws: ContainerStartException.self) {
+            _ = try await c.logs()
         }
     }
 

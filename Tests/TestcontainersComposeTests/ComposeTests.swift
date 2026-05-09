@@ -20,7 +20,7 @@ private func fixture(_ name: String) -> String {
 
 // MARK: - Unit tests (no Docker required)
 
-@Suite("Compose unit tests")
+@Suite("Compose unit tests", .serialized)
 struct ComposeUnitTests {
     @Test func composeNoFileName() {
         let basic = DockerCompose(context: fixture("basic"))
@@ -173,9 +173,10 @@ struct ComposeUnitTests {
         #expect(container.status == "running")
     }
 
-    @Test func composeContainerHostIpIs127001() {
+    @Test func composeContainerHostIpIs127001() async throws {
         let container = ComposeContainer()
-        #expect(container.containerHostIp() == "127.0.0.1")
+        let ip = try await container.containerHostIp()
+        #expect(ip == "127.0.0.1")
     }
 
     @Test func composeContainerExposedPortReturnsPassthrough() async throws {
@@ -191,24 +192,24 @@ struct ComposeUnitTests {
 struct ComposeIntegrationTests {
     @Test func composeStop() async throws {
         let compose = DockerCompose(context: fixture("basic"))
-        try compose.start()
-        try compose.stop()
+        try await compose.start()
+        compose.stop()
     }
 
     @Test func composeStartStop() async throws {
         let compose = DockerCompose(context: fixture("basic"))
-        try compose.start()
-        let containers = try compose.getContainers()
-        #expect(!containers.isEmpty)
-        try compose.stop()
+        try await compose.start()
+        let allContainers = compose.containers()
+        #expect(!allContainers.isEmpty)
+        compose.stop()
     }
 
     @Test func startStopMultiple() async throws {
         let compose = DockerCompose(context: fixture("basic_multiple"))
-        try compose.start()
-        let containers = try compose.getContainers()
-        #expect(containers.count >= 2)
-        try compose.stop()
+        try await compose.start()
+        let allContainers = compose.containers()
+        #expect(allContainers.count >= 2)
+        compose.stop()
     }
 
     @Test func composeE2E() async throws {
@@ -218,8 +219,8 @@ struct ComposeIntegrationTests {
 
     @Test func composeLogs() async throws {
         try await DockerCompose.use(DockerCompose(context: fixture("basic"))) { compose in
-            let logs = try compose.getLogs()
-            #expect(!logs.isEmpty)
+            let (stdout, stderr) = compose.logs()
+            #expect(!stdout.isEmpty || !stderr.isEmpty)
         }
     }
 
@@ -241,8 +242,8 @@ struct ComposeIntegrationTests {
 
     @Test func composeMultiplePorts() async throws {
         try await DockerCompose.use(DockerCompose(context: fixture("port_multiple"))) { compose in
-            let containers = try compose.getContainers()
-            #expect(!containers.isEmpty)
+            let allContainers = compose.containers()
+            #expect(!allContainers.isEmpty)
         }
     }
 
@@ -250,19 +251,19 @@ struct ComposeIntegrationTests {
         try await DockerCompose.use(DockerCompose(context: fixture("basic"))) { compose in
             let container = try compose.container()
             let svc = try #require(container.service)
-            let result = try compose.exec(serviceName: svc, command: ["echo", "hello"])
-            #expect(result.exitCode == 0)
-            #expect(result.output.contains("hello"))
+            let (stdout, _, exitCode) = compose.execInContainer(["echo", "hello"], serviceName: svc)
+            #expect(exitCode == 0)
+            #expect(stdout.contains("hello"))
         }
     }
 
     @Test func execInContainerMultiple() async throws {
         try await DockerCompose.use(DockerCompose(context: fixture("basic_multiple"))) { compose in
-            let containers = try compose.getContainers()
-            for container in containers {
+            let allContainers = compose.containers()
+            for container in allContainers {
                 if let svc = container.service {
-                    let result = try compose.exec(serviceName: svc, command: ["true"])
-                    #expect(result.exitCode == 0)
+                    let (_, _, exitCode) = compose.execInContainer(["true"], serviceName: svc)
+                    #expect(exitCode == 0)
                 }
             }
         }
@@ -271,10 +272,10 @@ struct ComposeIntegrationTests {
     @Test func composeConfig() async throws {
         for fixtureName in ["basic", "basic_multiple", "basic_volume", "port_single", "port_multiple"] {
             let compose = DockerCompose(context: fixture(fixtureName))
-            try compose.start()
-            defer { try? compose.stop() }
-            let config = try compose.getConfig()
-            #expect(!config.isEmpty)
+            try await compose.start()
+            defer { compose.stop() }
+            let cfg = try compose.config()
+            #expect(!cfg.isEmpty)
         }
     }
 
@@ -284,10 +285,10 @@ struct ComposeIntegrationTests {
                 context: fixture("profile_support"),
                 profiles: [profile]
             )
-            try compose.start()
-            let containers = try compose.getContainers()
-            #expect(!containers.isEmpty)
-            try compose.stop()
+            try await compose.start()
+            let allContainers = compose.containers()
+            #expect(!allContainers.isEmpty)
+            compose.stop()
         }
     }
 

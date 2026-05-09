@@ -20,7 +20,7 @@ public final class LogMessageWaitStrategy: WaitStrategy {
     /// Creates a strategy waiting for `pattern` to appear in container logs.
     ///
     /// - Parameters:
-    ///   - pattern: A `String` (compiled as a multiline regex) or `NSRegularExpression`.
+    ///   - pattern: A `String` compiled as a multiline regex.
     ///   - times: Number of times the pattern must appear. Default `1`.
     ///   - predicateStreamsAnd: When `true`, both stdout AND stderr must match.
     public init(
@@ -53,8 +53,8 @@ public final class LogMessageWaitStrategy: WaitStrategy {
 
     override public func waitUntilReady(target: any WaitStrategyTarget) async throws {
         let ready = try await poll {
-            target.reload()
-            let (stdoutData, stderrData) = try target.logs()
+            await target.reload()
+            let (stdoutData, stderrData) = try await target.logs()
             let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
             let stderr = String(data: stderrData, encoding: .utf8) ?? ""
 
@@ -62,14 +62,15 @@ public final class LogMessageWaitStrategy: WaitStrategy {
                 return self.countMatches(in: stdout) >= self.times
                     && self.countMatches(in: stderr) >= self.times
             } else {
-                return self.countMatches(in: stdout) + self.countMatches(in: stderr) >= self.times
+                return self.countMatches(in: stdout) >= self.times
+                    || self.countMatches(in: stderr) >= self.times
             }
         }
 
         if !ready {
             if !notExitedStatuses.contains(target.status) {
                 throw WaitStrategyError.containerExited(
-                    "Container exited before log message matched. Status: \(target.status)"
+                    "Container exited before log message found. Status: \(target.status)"
                 )
             }
             throw WaitStrategyError.timeout(
@@ -86,97 +87,136 @@ public final class LogMessageWaitStrategy: WaitStrategy {
 public final class HttpWaitStrategy: WaitStrategy {
     private let port: Int
     private let path: String
-    private var statusCodes: Set<Int> = [200]
-    private var statusCodePredicate: ((Int) -> Bool)?
-    private var responsePredicate: ((String) -> Bool)?
-    private var useTls: Bool = false
-    private var insecureTls: Bool = false
-    private var headers: [String: String] = [:]
-    private var method: String = "GET"
-    private var body: String?
+    private var _statusCodes: Set<Int> = [200]
+    private var _statusCodeMatcher: ((Int) -> Bool)?
+    private var _responsePredicate: ((String) -> Bool)?
+    private var _useTls: Bool = false
+    private var _insecureTls: Bool = false
+    private var _headers: [String: String] = [:]
+    private var _method: String = "GET"
+    private var _body: String?
 
     /// Creates a strategy waiting for an HTTP response on `port` at `path`.
+    ///
+    /// `path` defaults to `"/"` and is normalised to start with `/`.
     public init(port: Int, path: String = "/") {
         self.port = port
-        self.path = path
+        self.path = path.hasPrefix("/") ? path : "/\(path)"
         super.init()
     }
 
+    /// Creates an `HttpWaitStrategy` from a full URL string.
+    ///
+    /// The port, path, and TLS flag are extracted automatically from `url`.
+    /// When the scheme is `https`, `usingTls()` is called implicitly.
+    public convenience init(url: String) {
+        guard let parsed = URLComponents(string: url) else {
+            self.init(port: 80)
+            return
+        }
+        let effectivePort: Int
+        if let port = parsed.port {
+            effectivePort = port
+        } else {
+            effectivePort = parsed.scheme == "https" ? 443 : 80
+        }
+        let effectivePath = parsed.path.isEmpty ? "/" : parsed.path
+        self.init(port: effectivePort, path: effectivePath)
+        if parsed.scheme == "https" {
+            _ = self.usingTls()
+        }
+    }
+
     @discardableResult public func forStatusCode(_ code: Int) -> Self {
-        statusCodes = [code]; return self
+        _statusCodes.insert(code)
+        return self
     }
 
     @discardableResult public func forStatusCodeMatching(_ pred: @escaping (Int) -> Bool) -> Self {
-        statusCodePredicate = pred; return self
+        _statusCodeMatcher = pred
+        return self
     }
 
     @discardableResult public func forResponsePredicate(_ pred: @escaping (String) -> Bool) -> Self {
-        responsePredicate = pred; return self
+        _responsePredicate = pred
+        return self
     }
 
     @discardableResult public func usingTls(insecure: Bool = false) -> Self {
-        useTls = true; insecureTls = insecure; return self
+        _useTls = true; _insecureTls = insecure; return self
     }
 
     @discardableResult public func withHeader(_ name: String, _ value: String) -> Self {
-        headers[name] = value; return self
+        _headers[name] = value; return self
     }
 
     @discardableResult public func withBasicCredentials(_ user: String, _ password: String) -> Self {
         let encoded = Data("\(user):\(password)".utf8).base64EncodedString()
-        headers["Authorization"] = "Basic \(encoded)"
+        _headers["Authorization"] = "Basic \(encoded)"
         return self
     }
 
     @discardableResult public func withMethod(_ m: String) -> Self {
-        method = m; return self
+        _method = m.uppercased(); return self
     }
 
     @discardableResult public func withBody(_ b: String) -> Self {
-        body = b; return self
+        _body = b; return self
     }
 
+    /// The current set of HTTP headers that will be sent with each probe request.
+    /// Exposed for unit testing only.
+    public var testHeaders: [String: String] { _headers }
+
+    /// The HTTP method that will be used for each probe request.
+    /// Exposed for unit testing only.
+    public var testMethod: String { _method }
+
+    /// The set of HTTP status codes that are considered successful.
+    /// Exposed for unit testing only.
+    public var testStatusCodes: Set<Int> { _statusCodes }
+
     override public func waitUntilReady(target: any WaitStrategyTarget) async throws {
-        let scheme = useTls ? "https" : "http"
-        let host = target.containerHostIp()
+        let scheme = _useTls ? "https" : "http"
+        let host = try await target.containerHostIp()
         let mappedPort = try await target.exposedPort(port)
         let urlString = "\(scheme)://\(host):\(mappedPort)\(path)"
 
-        let ready = try await poll(transientExceptions: [URLError.self]) {
-            guard let url = URL(string: urlString) else { return false }
-            var request = URLRequest(url: url, timeoutInterval: 1.0)
-            request.httpMethod = self.method
-            for (k, v) in self.headers { request.setValue(v, forHTTPHeaderField: k) }
-            if let b = self.body { request.httpBody = Data(b.utf8) }
+        let ready = try await poll(
+            {
+                guard let url = URL(string: urlString) else { return false }
+                var request = URLRequest(url: url, timeoutInterval: 1.0)
+                request.httpMethod = self._method
+                for (k, v) in self._headers { request.setValue(v, forHTTPHeaderField: k) }
+                if let b = self._body { request.httpBody = Data(b.utf8) }
 
-            let session: URLSession
-            if self.insecureTls {
-                let config = URLSessionConfiguration.default
-                session = URLSession(configuration: config, delegate: InsecureTLSDelegate(), delegateQueue: nil)
-            } else {
-                session = URLSession.shared
-            }
+                let session: URLSession
+                if self._insecureTls {
+                    let config = URLSessionConfiguration.default
+                    session = URLSession(configuration: config, delegate: InsecureTLSDelegate(), delegateQueue: nil)
+                } else {
+                    session = URLSession.shared
+                }
 
-            let (data, response) = try await session.data(for: request)
-            guard let httpResp = response as? HTTPURLResponse else { return false }
-            let code = httpResp.statusCode
+                let (data, response) = try await session.data(for: request)
+                guard let httpResp = response as? HTTPURLResponse else { return false }
+                let code = httpResp.statusCode
 
-            // statusCode < 300 = success
-            let codeOk: Bool
-            if let pred = self.statusCodePredicate {
-                codeOk = pred(code)
-            } else {
-                codeOk = self.statusCodes.contains(code)
-            }
-            guard codeOk else {
-                throw URLError(.badServerResponse)
-            }
-            if let pred = self.responsePredicate {
-                let body = String(data: data, encoding: .utf8) ?? ""
-                return pred(body)
-            }
-            return true
-        }
+                let codeOk: Bool
+                if let pred = self._statusCodeMatcher {
+                    codeOk = pred(code)
+                } else {
+                    codeOk = self._statusCodes.contains(code)
+                }
+                guard codeOk else { return false }
+                if let pred = self._responsePredicate {
+                    let body = String(data: data, encoding: .utf8) ?? ""
+                    return pred(body)
+                }
+                return true
+            },
+            transientExceptions: [URLError.self]
+        )
 
         if !ready {
             throw WaitStrategyError.timeout("HTTP endpoint \(urlString) not ready within \(startupTimeout).")
@@ -206,24 +246,35 @@ private final class InsecureTLSDelegate: NSObject, URLSessionDelegate {
 public final class HealthcheckWaitStrategy: WaitStrategy {
     override public func waitUntilReady(target: any WaitStrategyTarget) async throws {
         let ready = try await poll {
-            target.reload()
-            // Health status requires an inspect; check via logs/status is approximated
-            // by reading status string from target which must be set by the container
-            // Containers implementing this must expose "healthy"/"unhealthy" via status.
-            let s = target.status
-            if s == "unhealthy" {
-                let (stdout, _) = try target.logs()
-                let logText = String(data: stdout, encoding: .utf8) ?? ""
-                throw WaitStrategyError.unhealthy("Container is unhealthy. Logs:\n\(logText)")
+            await target.reload()
+
+            var healthStatus: String?
+            do {
+                let info = try await target.containerInfo()
+                healthStatus = info?.state?.health?.status
+            } catch {
+                fputs("testcontainers: error fetching health status: \(error)\n", stderr)
+                healthStatus = nil
             }
-            if s == "healthy" { return true }
-            if !notExitedStatuses.contains(s) {
-                throw StopPollingError()
+
+            guard let status = healthStatus, !status.isEmpty else {
+                throw WaitStrategyError.containerExited(
+                    "Container has no health check configured: \(target)"
+                )
             }
-            return false
+            if status == "healthy" { return true }
+            if status == "unhealthy" {
+                let (stdout, stderrData) = try await target.logs()
+                var combined = stdout
+                combined.append(stderrData)
+                let logs = String(data: combined, encoding: .utf8) ?? ""
+                throw WaitStrategyError.unhealthy("Container is unhealthy. Logs: \(logs)")
+            }
+            return false // "starting" — keep waiting
         }
+
         if !ready {
-            throw WaitStrategyError.timeout("Container did not become healthy within \(startupTimeout).")
+            throw WaitStrategyError.timeout("Container not healthy within \(startupTimeout).")
         }
     }
 }
@@ -240,7 +291,7 @@ public final class PortWaitStrategy: WaitStrategy {
     }
 
     override public func waitUntilReady(target: any WaitStrategyTarget) async throws {
-        let host = target.containerHostIp()
+        let host = try await target.containerHostIp()
         let mappedPort = try await target.exposedPort(port)
 
         let ready = try await poll {
@@ -305,17 +356,17 @@ public final class ContainerStatusWaitStrategy: WaitStrategy {
 
     override public func waitUntilReady(target: any WaitStrategyTarget) async throws {
         let ready = try await poll {
-            target.reload()
+            await target.reload()
             let s = target.status
             if s == "running" { return true }
             if !Self.continueStatuses.contains(s) {
-                throw StopPollingError()
+                try throwStopIteration()
             }
             return false
         }
         if !ready {
-            throw WaitStrategyError.timeout(
-                "Container never reached 'running' status. Final status: \(target.status)"
+            throw WaitStrategyError.containerExited(
+                "Container not running. Status: \(target.status)"
             )
         }
     }
@@ -323,11 +374,18 @@ public final class ContainerStatusWaitStrategy: WaitStrategy {
 
 // MARK: - 7. CompositeWaitStrategy
 
-/// Runs multiple wait strategies in sequence.
+/// Chains multiple wait strategies and runs them in sequence.
+///
+/// All child strategies are applied in order; the container is considered
+/// ready only after **every** strategy succeeds.
+///
+/// `withStartupTimeout` and `withPollInterval` are propagated to all child
+/// strategies so that a single call configures the entire chain.
 public final class CompositeWaitStrategy: WaitStrategy {
-    private var strategies: [WaitStrategy]
+    private let strategies: [WaitStrategy]
 
-    public init(_ strategies: WaitStrategy...) {
+    /// Creates a `CompositeWaitStrategy` from a list of child strategies.
+    public init(_ strategies: [WaitStrategy]) {
         self.strategies = strategies
         super.init()
     }
@@ -341,6 +399,12 @@ public final class CompositeWaitStrategy: WaitStrategy {
     override public func withPollInterval(_ interval: Duration) -> Self {
         for s in strategies { s.withPollInterval(interval) }
         pollInterval = interval
+        return self
+    }
+
+    override public func withTransientExceptions(_ exceptions: [any Error.Type]) -> Self {
+        for s in strategies { s.withTransientExceptions(exceptions) }
+        transientExceptionTypes.append(contentsOf: exceptions)
         return self
     }
 
@@ -362,6 +426,11 @@ public final class ExecWaitStrategy: WaitStrategy {
         self.command = command
         self.expectedExitCode = expectedExitCode
         super.init()
+    }
+
+    /// Creates an `ExecWaitStrategy` that runs a single shell command string.
+    public convenience init(shell command: String, expectedExitCode: Int = 0) {
+        self.init([command], expectedExitCode: expectedExitCode)
     }
 
     override public func waitUntilReady(target: any WaitStrategyTarget) async throws {

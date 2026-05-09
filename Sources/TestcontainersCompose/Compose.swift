@@ -7,10 +7,10 @@
 import Foundation
 import TestcontainersCore
 
-// One-shot deprecation warning for getConfig — printed on the first call only.
-private var getConfigWarningPrinted = false
+// One-shot deprecation warning for config — printed on the first call only.
+private var _getConfigWarningPrinted = false
 
-private let configExperimentalWarning =
+private let _configExperimentalWarning =
     "get_config is experimental, see testcontainers/testcontainers-python#669"
 
 /// IP version preference used when selecting a published port URL.
@@ -20,6 +20,8 @@ public enum IpVersion {
     /// Prefer IPv6 addresses.
     case ipv6
 }
+
+// MARK: - PublishedPortModel
 
 /// Describes a single published port for a Compose service.
 public struct PublishedPortModel {
@@ -53,11 +55,11 @@ public struct PublishedPortModel {
     /// - Windows: `0.0.0.0` is replaced with `127.0.0.1`.
     public func normalize() -> PublishedPortModel {
         var normalizedUrl = url
-        let sshHost = getDockerHostHostname()
-        if let ssh = sshHost,
-           url == "0.0.0.0" || url == "127.0.0.1" || url == "localhost"
-               || url == "::" || url == "::1" {
-            normalizedUrl = ssh
+        if let ssh = dockerHostHostname() {
+            if url == "0.0.0.0" || url == "127.0.0.1" || url == "localhost"
+                || url == "::" || url == "::1" {
+                normalizedUrl = ssh
+            }
         } else {
             #if os(Windows)
             if url == "0.0.0.0" {
@@ -75,26 +77,65 @@ public struct PublishedPortModel {
     }
 }
 
+// MARK: - ComposeContainer
+
 /// Represents a single running service container within a Docker Compose stack.
 ///
 /// Instances are returned by `DockerCompose.containers()` and
 /// `DockerCompose.container(_:)`. They implement `WaitStrategyTarget` so
 /// standard wait strategies work directly with Compose services.
 public class ComposeContainer: WaitStrategyTarget {
-    public var id: String?
-    public var name: String?
-    public var command: String?
-    public var project: String?
-    public var service: String?
+    /// Docker container ID (short or full hex string).
+    public let id: String?
+
+    /// Container name as assigned by Docker Compose.
+    public let name: String?
+
+    /// The command string the container's main process is running.
+    public let command: String?
+
+    /// Compose project name.
+    public let project: String?
+
+    /// Compose service name.
+    public let service: String?
+
+    /// Container state string, e.g. `"running"`, `"exited"`.
     public var state: String?
-    public var health: String?
-    public var exitCode: Int?
-    public var publishers: [PublishedPortModel] = []
 
-    internal weak var dockerCompose: DockerCompose?
-    private var cachedContainerInfo: ContainerInspectInfo?
+    /// Docker health-check status string.
+    public let health: String?
 
-    public init() {}
+    /// Exit code of the container's main process (when stopped).
+    public let exitCode: Int?
+
+    /// Published port mappings for this container, already normalised.
+    public var publishers: [PublishedPortModel]
+
+    internal var dockerCompose: DockerCompose?
+    private var _cachedContainerInfo: ContainerInspectInfo?
+
+    public init(
+        id: String? = nil,
+        name: String? = nil,
+        command: String? = nil,
+        project: String? = nil,
+        service: String? = nil,
+        state: String? = nil,
+        health: String? = nil,
+        exitCode: Int? = nil,
+        publishers: [PublishedPortModel]? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.command = command
+        self.project = project
+        self.service = service
+        self.state = state
+        self.health = health
+        self.exitCode = exitCode
+        self.publishers = publishers ?? []
+    }
 
     public init(from dict: [String: Any]) {
         self.id = dict["ID"] as? String
@@ -107,6 +148,8 @@ public class ComposeContainer: WaitStrategyTarget {
         self.exitCode = dict["ExitCode"] as? Int
         if let rawPublishers = dict["Publishers"] as? [[String: Any]] {
             self.publishers = rawPublishers.map { PublishedPortModel(from: $0).normalize() }
+        } else {
+            self.publishers = []
         }
     }
 
@@ -153,19 +196,21 @@ public class ComposeContainer: WaitStrategyTarget {
 
     // MARK: - WaitStrategyTarget
 
-    public func containerHostIp() -> String { "127.0.0.1" }
+    public func containerHostIp() async throws -> String { "127.0.0.1" }
 
     public func exposedPort(_ port: Int) async throws -> Int { port }
 
-    public func logs() throws -> (stdout: Data, stderr: Data) {
+    public var wrappedContainer: AnyObject { self }
+
+    public func logs() async throws -> (stdout: Data, stderr: Data) {
         guard let compose = dockerCompose else {
             throw ComposeError.noReference("DockerCompose reference not set on ComposeContainer")
         }
         guard let svc = service else {
             throw ComposeError.noReference("Service name not set on ComposeContainer")
         }
-        let logOutput = try compose.getLogs(services: [svc])
-        return (stdout: Data(logOutput.utf8), stderr: Data())
+        let (stdout, stderr) = compose.logs([svc])
+        return (stdout: Data(stdout.utf8), stderr: Data(stderr.utf8))
     }
 
     public func exec(_ command: [String]) async throws -> (exitCode: Int, output: Data) {
@@ -175,32 +220,36 @@ public class ComposeContainer: WaitStrategyTarget {
         guard let svc = service else {
             throw ComposeError.noReference("Service name not set on ComposeContainer")
         }
-        let result = try compose.exec(serviceName: svc, command: command)
-        return (exitCode: result.exitCode, output: Data(result.output.utf8))
+        let (stdout, _, exitCode) = compose.execInContainer(command, serviceName: svc)
+        return (exitCode: exitCode, output: Data(stdout.utf8))
     }
 
-    public func reload() {}
-
-    public var status: String { state ?? "unknown" }
-
-    /// Returns the full Docker inspect information for this container.
     public func containerInfo() async throws -> ContainerInspectInfo? {
-        if let cached = cachedContainerInfo { return cached }
+        if let cached = _cachedContainerInfo { return cached }
         guard let compose = dockerCompose, let containerId = id else { return nil }
         do {
-            let info = try await compose.dockerClient.getContainerInspectInfo(containerId)
-            cachedContainerInfo = info
+            let info = try await compose._dockerClient.containerInspectInfo(containerId)
+            _cachedContainerInfo = info
             return info
         } catch {
             return nil
         }
     }
+
+    public func reload() async {}
+
+    public var status: String { state ?? "unknown" }
 }
+
+// MARK: - DockerCompose
 
 /// Manages a Docker Compose stack in tests.
 ///
 /// Wraps the `docker compose` CLI to bring up a multi-service stack, wait for
 /// services to be healthy, introspect containers, and tear the stack down.
+///
+/// All Compose CLI commands are run synchronously via `Process`; failures throw
+/// `ComposeError.processError`.
 public class DockerCompose {
     /// The directory used as the working directory for all Compose commands.
     public let context: String
@@ -209,36 +258,37 @@ public class DockerCompose {
     public let composeFileName: [String]?
 
     /// Whether to run `docker compose pull` before `up`. Defaults to `false`.
-    public var pull: Bool = false
+    public let pull: Bool
 
     /// Whether to pass `--build` to `docker compose up`. Defaults to `false`.
-    public var build: Bool = false
+    public let build: Bool
 
     /// Whether to wait for services to be healthy. Defaults to `true`.
-    public var wait: Bool = true
+    public let wait: Bool
 
     /// Whether to preserve volumes when stopping. Defaults to `false`.
-    public var keepVolumes: Bool = false
+    public let keepVolumes: Bool
 
     /// `--env-file` argument(s) passed to every Compose command.
-    public var envFile: [String]?
+    public let envFile: [String]?
 
     /// Optional subset of services to bring up / tear down.
-    public var services: [String]?
+    public let services: [String]?
 
     /// Path to the `docker` executable, or `nil` to use the system `docker`.
-    public var dockerCommandPath: String?
+    public let dockerCommandPath: String?
 
     /// `--profile` arguments passed to every Compose command.
-    public var profiles: [String]?
+    public let profiles: [String]?
 
     /// Whether to pass `--quiet` to `docker compose pull`. Defaults to `false`.
-    public var quietPull: Bool = false
+    public let quietPull: Bool
 
     /// Whether to pass `--quiet-build` to `docker compose up --build`. Defaults to `false`.
-    public var quietBuild: Bool = false
+    public let quietBuild: Bool
 
-    internal lazy var dockerClient: DockerClient = DockerClient()
+    private var _waitStrategies: [String: WaitStrategy]?
+    internal lazy var _dockerClient: DockerClient = DockerClient()
 
     // MARK: - Init
 
@@ -257,22 +307,25 @@ public class DockerCompose {
         quietBuild: Bool = false
     ) {
         self.context = context
-        self.composeFileName = composeFileName
+        self.composeFileName = composeFileName.map { Array($0) }
         self.pull = pull
         self.build = build
         self.wait = wait
         self.keepVolumes = keepVolumes
-        self.envFile = envFile
-        self.services = services
+        self.envFile = envFile.map { Array($0) }
+        self.services = services.map { Array($0) }
         self.dockerCommandPath = dockerCommandPath
-        self.profiles = profiles
+        self.profiles = profiles.map { Array($0) }
         self.quietPull = quietPull
         self.quietBuild = quietBuild
     }
 
     // MARK: - Compose command base
 
-    private var composeCommandProperty: [String] {
+    /// The base command prefix shared by all Compose CLI invocations.
+    ///
+    /// Lazily built and cached as an **unmodifiable** `[String]`.
+    public private(set) lazy var composeCommandProperty: [String] = {
         var cmd: [String]
         if let dockerPath = dockerCommandPath {
             cmd = [dockerPath, "compose"]
@@ -283,14 +336,30 @@ public class DockerCompose {
         for p in profiles ?? [] { cmd += ["--profile", p] }
         for e in envFile ?? [] { cmd += ["--env-file", e] }
         return cmd
+    }()
+
+    // MARK: - waitingFor builder
+
+    /// Registers per-service `WaitStrategy` instances to run after `up`.
+    ///
+    /// Returns `self` for chaining.
+    @discardableResult
+    public func waitingFor(_ strategies: [String: WaitStrategy]) -> DockerCompose {
+        _waitStrategies = strategies
+        return self
     }
 
     // MARK: - Lifecycle
 
     /// Brings the Compose stack up.
-    public func start() throws {
+    ///
+    /// Steps:
+    /// 1. Optionally runs `docker compose pull` when `pull` is `true`.
+    /// 2. Runs `docker compose up [--build] [--wait|--detach] [services…]`.
+    /// 3. Runs any registered wait strategies against their respective containers.
+    public func start() async throws {
         if pull {
-            try runCommand(composeCommandProperty + ["pull"] + (quietPull ? ["--quiet"] : []))
+            try _runCommand(composeCommandProperty + ["pull"] + (quietPull ? ["--quiet"] : []))
         }
 
         var upCmd = composeCommandProperty + ["up"]
@@ -298,49 +367,58 @@ public class DockerCompose {
         if build && quietBuild { upCmd += ["--quiet-build"] }
         upCmd += wait ? ["--wait"] : ["--detach"]
         upCmd += services ?? []
-        try runCommand(upCmd)
+        try _runCommand(upCmd)
+
+        if let strategies = _waitStrategies {
+            for (serviceName, strategy) in strategies {
+                let target = try container(serviceName)
+                try await strategy.waitUntilReady(target: target)
+            }
+        }
     }
 
     /// Tears the Compose stack down.
     ///
-    /// - `down: true` — runs `docker compose down --volumes`.
+    /// - `down: true` (default) — runs `docker compose down --volumes`.
     /// - `down: false` — runs `docker compose stop`.
-    public func stop(down: Bool = true) throws {
+    public func stop(down: Bool = true) {
         let cmd: [String]
         if down {
             cmd = composeCommandProperty + ["down", "--volumes"] + (services ?? [])
         } else {
             cmd = composeCommandProperty + ["stop"] + (services ?? [])
         }
-        try runCommand(cmd)
+        _ = try? _runCommand(cmd)
     }
 
     // MARK: - Container introspection
 
-    /// Returns log output for the specified services.
-    public func getLogs(services: [String]? = nil) throws -> String {
+    /// Returns log output for the specified services as `(stdout, stderr)`.
+    ///
+    /// When `services` is omitted, logs for all services are returned.
+    public func logs(_ services: [String]? = nil) -> (String, String) {
         let cmd = composeCommandProperty + ["logs"] + (services ?? [])
-        let result = try runCommand(cmd)
-        return result.stdout
+        let result = _runCommandAllowingFailure(cmd)
+        return (result.stdout, result.stderr)
     }
 
-    /// Returns the resolved Compose configuration as a JSON object.
+    /// **Experimental.** Returns the resolved Compose configuration as a JSON map.
     ///
     /// A deprecation warning is printed to stderr on the first call.
-    public func getConfig(
+    public func config(
         pathResolution: Bool = true,
         normalize: Bool = true,
         interpolate: Bool = true
     ) throws -> [String: Any] {
-        if !getConfigWarningPrinted {
-            fputs(configExperimentalWarning + "\n", stderr)
-            getConfigWarningPrinted = true
+        if !_getConfigWarningPrinted {
+            fputs(_configExperimentalWarning + "\n", stderr)
+            _getConfigWarningPrinted = true
         }
         var cmd = composeCommandProperty + ["config", "--format", "json"]
         if !pathResolution { cmd += ["--no-path-resolution"] }
         if !normalize { cmd += ["--no-normalize"] }
         if !interpolate { cmd += ["--no-interpolate"] }
-        let result = try runCommand(cmd)
+        let result = try _runCommand(cmd)
         guard let data = result.stdout.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw ComposeError.parseError("Failed to parse docker compose config output")
@@ -351,14 +429,17 @@ public class DockerCompose {
     /// Returns the list of containers in the stack.
     ///
     /// Handles both Docker 24 array-per-output and Docker 25+ one-object-per-line formats.
-    public func getContainers(includeAll: Bool = false) throws -> [ComposeContainer] {
+    ///
+    /// Each returned `ComposeContainer` has its `DockerCompose` back-reference
+    /// set so that further operations (logs, inspect) work.
+    public func containers(includeAll: Bool = false) -> [ComposeContainer] {
         var cmd = composeCommandProperty + ["ps", "--format", "json"]
         if includeAll { cmd += ["-a"] }
-        let result = try runCommand(cmd)
+        let result = _runCommandAllowingFailure(cmd)
         let output = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         if output.isEmpty { return [] }
 
-        var containers: [ComposeContainer] = []
+        var containerList: [ComposeContainer] = []
         for line in output.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
@@ -368,25 +449,28 @@ public class DockerCompose {
                 continue
             }
             if let arr = decoded as? [[String: Any]] {
-                containers += arr.map { ComposeContainer(from: $0) }
+                containerList += arr.map { ComposeContainer(from: $0) }
             } else if let obj = decoded as? [String: Any] {
-                containers.append(ComposeContainer(from: obj))
+                containerList.append(ComposeContainer(from: obj))
             }
         }
-        for c in containers { c.dockerCompose = self }
-        return containers
+        for c in containerList { c.dockerCompose = self }
+        return containerList
     }
 
     /// Returns a single `ComposeContainer` from the stack.
-    public func container(serviceName: String? = nil) throws -> ComposeContainer {
+    ///
+    /// - `serviceName: nil` — there must be exactly one container running.
+    /// - `serviceName` given — finds the container whose `service` matches.
+    public func container(_ serviceName: String? = nil, includeAll: Bool = false) throws -> ComposeContainer {
         if let name = serviceName {
-            let matching = try getContainers().filter { $0.service == name }
+            let matching = containers(includeAll: includeAll).filter { $0.service == name }
             if matching.isEmpty {
                 throw ContainerIsNotRunning("\(name) is not running in the compose context")
             }
             return matching[0]
         } else {
-            let all = try getContainers()
+            let all = containers(includeAll: includeAll)
             if all.count != 1 {
                 throw ContainerIsNotRunning(
                     "get_container failed because no service_name given "
@@ -398,14 +482,38 @@ public class DockerCompose {
     }
 
     /// Runs `command` inside the named Compose service container.
-    public func exec(serviceName: String, command: [String]) throws -> (exitCode: Int, output: String) {
-        let cmd = composeCommandProperty + ["exec", "-T", serviceName] + command
-        let result = try runCommandAllowingFailure(cmd)
-        return (exitCode: result.exitCode, output: result.stdout)
+    ///
+    /// Returns `(stdout, stderr, exitCode)` — the raw output strings and the
+    /// process exit code.
+    public func execInContainer(_ command: [String], serviceName: String? = nil) -> (String, String, Int) {
+        let svcName = serviceName ?? (try? container())?.service ?? ""
+        let cmd = composeCommandProperty + ["exec", "-T", svcName] + command
+        let result = _runCommandAllowingFailure(cmd)
+        return (result.stdout, result.stderr, result.exitCode)
+    }
+
+    /// Returns the host IP address bound to a service's published port.
+    public func serviceHost(serviceName: String? = nil, port: Int? = nil) throws -> String? {
+        let svc = try container(serviceName)
+        let pub = try svc.publisher(byPort: port).normalize()
+        return pub.url
+    }
+
+    /// Returns the ephemeral host port number for a service's published port.
+    public func servicePort(serviceName: String? = nil, port: Int? = nil) throws -> Int? {
+        let pub = try container(serviceName).publisher(byPort: port).normalize()
+        return pub.publishedPort
+    }
+
+    /// Returns both the normalised host address and ephemeral port for a service.
+    public func serviceHostAndPort(serviceName: String? = nil, port: Int? = nil) throws -> (String?, Int?) {
+        let pub = try container(serviceName).publisher(byPort: port).normalize()
+        return (pub.url, pub.publishedPort)
     }
 
     /// Polls `url` until it returns an HTTP 2xx response.
-    public func waitFor(url: String) async throws {
+    @discardableResult
+    public func waitFor(url: String) async throws -> DockerCompose {
         let timeout = testcontainersConfig.timeout
         let deadline = ContinuousClock.now + .seconds(Int(timeout))
         while ContinuousClock.now < deadline {
@@ -414,7 +522,7 @@ public class DockerCompose {
                 let (_, response) = try await URLSession.shared.data(from: u)
                 if let http = response as? HTTPURLResponse,
                    http.statusCode >= 200 && http.statusCode < 300 {
-                    return
+                    return self
                 }
             } catch {}
             try await Task.sleep(for: .seconds(1))
@@ -432,13 +540,13 @@ public class DockerCompose {
         _ compose: DockerCompose,
         _ fn: (DockerCompose) async throws -> T
     ) async throws -> T {
-        try compose.start()
+        try await compose.start()
         do {
             let result = try await fn(compose)
-            try compose.stop(down: !compose.keepVolumes)
+            compose.stop(down: !compose.keepVolumes)
             return result
         } catch {
-            try? compose.stop(down: !compose.keepVolumes)
+            compose.stop(down: !compose.keepVolumes)
             throw error
         }
     }
@@ -446,8 +554,8 @@ public class DockerCompose {
     // MARK: - Private helpers
 
     @discardableResult
-    private func runCommand(_ cmd: [String]) throws -> (stdout: String, stderr: String) {
-        let result = try runCommandAllowingFailure(cmd)
+    private func _runCommand(_ cmd: [String]) throws -> (stdout: String, stderr: String) {
+        let result = _runCommandAllowingFailure(cmd)
         if result.exitCode != 0 {
             throw ComposeError.processError(
                 cmd.joined(separator: " "),
@@ -458,7 +566,7 @@ public class DockerCompose {
         return (stdout: result.stdout, stderr: result.stderr)
     }
 
-    private func runCommandAllowingFailure(_ cmd: [String]) throws -> (stdout: String, stderr: String, exitCode: Int) {
+    private func _runCommandAllowingFailure(_ cmd: [String]) -> (stdout: String, stderr: String, exitCode: Int) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = cmd
@@ -469,16 +577,18 @@ public class DockerCompose {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        try process.run()
+        try? process.run()
         process.waitUntilExit()
 
         let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
         let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-        let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
-        let stderr = String(data: stderrData, encoding: .utf8) ?? ""
-        return (stdout: stdout, stderr: stderr, exitCode: Int(process.terminationStatus))
+        let stdoutStr = String(data: stdoutData, encoding: .utf8) ?? ""
+        let stderrStr = String(data: stderrData, encoding: .utf8) ?? ""
+        return (stdout: stdoutStr, stderr: stderrStr, exitCode: Int(process.terminationStatus))
     }
 }
+
+// MARK: - Errors
 
 /// Errors thrown by Compose operations.
 public enum ComposeError: Error, CustomStringConvertible {
@@ -488,8 +598,8 @@ public enum ComposeError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .processError(let cmd, let code, let stderr):
-            return "Process '\(cmd)' exited with code \(code): \(stderr)"
+        case .processError(let cmd, let code, let stderrStr):
+            return "Process '\(cmd)' exited with code \(code): \(stderrStr)"
         case .noReference(let m), .parseError(let m):
             return m
         }

@@ -11,11 +11,13 @@ final class MockWaitStrategyTarget: WaitStrategyTarget {
     var exposedPortValue: Int = 1234
     var reloadCallCount: Int = 0
 
-    func containerHostIp() -> String { "127.0.0.1" }
+    func containerHostIp() async throws -> String { "127.0.0.1" }
     func exposedPort(_ port: Int) async throws -> Int { exposedPortValue }
-    func logs() throws -> (stdout: Data, stderr: Data) { logsResult }
+    var wrappedContainer: AnyObject { self }
+    func logs() async throws -> (stdout: Data, stderr: Data) { logsResult }
     func exec(_ command: [String]) async throws -> (exitCode: Int, output: Data) { execResult }
-    func reload() { reloadCallCount += 1 }
+    func containerInfo() async throws -> ContainerInspectInfo? { nil }
+    func reload() async { reloadCallCount += 1 }
     var status: String { statusValue }
 }
 
@@ -200,11 +202,11 @@ struct CompositeWaitStrategyTests {
         target.logsResult = (stdout: Data("ready\n".utf8), stderr: Data())
         target.execResult = (exitCode: 0, output: Data())
 
-        let strategy = CompositeWaitStrategy(
+        let strategy = CompositeWaitStrategy([
             ContainerStatusWaitStrategy(),
             LogMessageWaitStrategy("ready"),
-            ExecWaitStrategy(["true"])
-        )
+            ExecWaitStrategy(["true"]),
+        ])
         strategy.startupTimeout = .seconds(5)
         strategy.pollInterval = .milliseconds(10)
         try await strategy.waitUntilReady(target: target)

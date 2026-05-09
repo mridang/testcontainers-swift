@@ -62,13 +62,13 @@ public class Network {
     /// on the same network can reach `containerId`.
     ///
     /// Throws a `StateError` if `create()` has not been called yet.
-    public func connect(_ containerId: String, networkAliases: [String] = []) async throws {
+    public func connect(_ containerId: String, networkAliases: [String]? = nil) async throws {
         guard let networkId = id else {
             throw NetworkError.notCreated(
                 "Network must be created before connecting a container. Call create() first."
             )
         }
-        try await dockerClient.connectNetwork(networkId, containerId: containerId, aliases: networkAliases)
+        try await dockerClient.connectNetwork(networkId, containerId, aliases: networkAliases ?? [])
     }
 
     /// Creates a network, runs `fn` with it, and removes the network afterwards.
