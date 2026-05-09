@@ -294,8 +294,6 @@ public class DockerContainer: WaitStrategyTarget, @unchecked Sendable {
             throw ContainerStartException("command must be a String or [String]")
         }
 
-        let labels = (try? createLabels(image: image)) ?? [:]
-
         let newId = try await _dockerClient.createContainer(
             image: image,
             command: cmdArray,
@@ -306,7 +304,6 @@ public class DockerContainer: WaitStrategyTarget, @unchecked Sendable {
             tmpfs: _tmpfs.isEmpty ? nil : _tmpfs,
             network: _network?.name,
             networkAliases: _networkAliases,
-            labels: labels,
             kwargs: _kwargs
         )
         _containerId = newId

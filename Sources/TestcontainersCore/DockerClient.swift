@@ -281,12 +281,12 @@ public class DockerClient: @unchecked Sendable {
 
         if let cmd = command { body["Cmd"] = cmd }
         body["Env"] = env.map { "\($0.key)=\($0.value)" }
-        body["Labels"] = userLabels
+        body["Labels"] = (try? createLabels(image: image, labels: userLabels)) ?? userLabels
 
-        // ExposedPorts
+        // ExposedPorts — always included, even when the map is empty (matches Dart wire format)
         var exposed: [String: Any] = [:]
         for p in ports.keys { exposed["\(p)/tcp"] = [:] as [String: Any] }
-        if !exposed.isEmpty { body["ExposedPorts"] = exposed }
+        body["ExposedPorts"] = exposed
 
         // HostConfig
         var hostConfig: [String: Any] = [:]
