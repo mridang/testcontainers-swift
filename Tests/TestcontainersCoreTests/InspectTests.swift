@@ -341,14 +341,16 @@ struct ContainerHealthcheckTests {
     }
 
     @Test func parsesAllFields() throws {
-        let hc = try decode([
-            "Test": ["CMD-SHELL", "curl -f http://localhost/ || exit 1"],
-            "Interval": 30_000_000_000,
-            "Timeout": 10_000_000_000,
-            "Retries": 5,
-            "StartPeriod": 15_000_000_000,
-            "StartInterval": 2_000_000_000,
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "Test": ["CMD-SHELL", "curl -f http://localhost/ || exit 1"],
+                "Interval": 30_000_000_000,
+                "Timeout": 10_000_000_000,
+                "Retries": 5,
+                "StartPeriod": 15_000_000_000,
+                "StartInterval": 2_000_000_000,
+            ] as [String: Any]
+        )
         #expect(hc.test == ["CMD-SHELL", "curl -f http://localhost/ || exit 1"])
         #expect(hc.interval == 30_000_000_000)
         #expect(hc.timeout == 10_000_000_000)
@@ -403,10 +405,12 @@ struct ContainerLogConfigTests {
     }
 
     @Test func parsesTypeAndConfig() throws {
-        let lc = try decode([
-            "Type": "json-file",
-            "Config": ["max-size": "10m", "max-file": "3"],
-        ] as [String: Any])
+        let lc = try decode(
+            [
+                "Type": "json-file",
+                "Config": ["max-size": "10m", "max-file": "3"],
+            ] as [String: Any]
+        )
         #expect(lc.type == "json-file")
         #expect(lc.config?["max-size"] == "10m")
         #expect(lc.config?["max-file"] == "3")
@@ -452,10 +456,12 @@ struct ContainerVolumeDriverConfigTests {
     }
 
     @Test func parsesNameAndOptions() throws {
-        let dc = try decode([
-            "Name": "local",
-            "Options": ["type": "tmpfs", "device": "tmpfs"],
-        ] as [String: Any])
+        let dc = try decode(
+            [
+                "Name": "local",
+                "Options": ["type": "tmpfs", "device": "tmpfs"],
+            ] as [String: Any]
+        )
         #expect(dc.name == "local")
         #expect(dc.options?["type"] == "tmpfs")
         #expect(dc.options?["device"] == "tmpfs")
@@ -502,12 +508,14 @@ struct ContainerImageManifestDescriptorTests {
     }
 
     @Test func parsesScalarFields() throws {
-        let desc = try decode([
-            "mediaType": "application/vnd.oci.image.manifest.v1+json",
-            "digest": "sha256:abc123",
-            "size": 1024,
-            "artifactType": "application/vnd.docker.container.image.v1+json",
-        ] as [String: Any])
+        let desc = try decode(
+            [
+                "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                "digest": "sha256:abc123",
+                "size": 1024,
+                "artifactType": "application/vnd.docker.container.image.v1+json",
+            ] as [String: Any]
+        )
         #expect(desc.mediaType == "application/vnd.oci.image.manifest.v1+json")
         #expect(desc.digest == "sha256:abc123")
         #expect(desc.size == 1024)
@@ -515,10 +523,12 @@ struct ContainerImageManifestDescriptorTests {
     }
 
     @Test func parsesNestedPlatform() throws {
-        let desc = try decode([
-            "digest": "sha256:abc",
-            "platform": ["architecture": "arm64", "os": "linux"],
-        ] as [String: Any])
+        let desc = try decode(
+            [
+                "digest": "sha256:abc",
+                "platform": ["architecture": "arm64", "os": "linux"],
+            ] as [String: Any]
+        )
         #expect(desc.platform != nil)
         #expect(desc.platform?.architecture == "arm64")
     }
@@ -610,13 +620,15 @@ struct ContainerDeviceRequestTests {
     }
 
     @Test func parsesAllFields() throws {
-        let req = try decode([
-            "Driver": "nvidia",
-            "Count": -1,
-            "DeviceIDs": ["GPU-abc", "GPU-def"],
-            "Capabilities": [["gpu"], ["nvidia", "compute"]],
-            "Options": ["key": "value"],
-        ] as [String: Any])
+        let req = try decode(
+            [
+                "Driver": "nvidia",
+                "Count": -1,
+                "DeviceIDs": ["GPU-abc", "GPU-def"],
+                "Capabilities": [["gpu"], ["nvidia", "compute"]],
+                "Options": ["key": "value"],
+            ] as [String: Any]
+        )
         #expect(req.driver == "nvidia")
         #expect(req.count == -1)
         #expect(req.deviceIDs == ["GPU-abc", "GPU-def"])
@@ -641,13 +653,15 @@ struct ContainerBindOptionsTests {
     }
 
     @Test func parsesAllFields() throws {
-        let opts = try decode([
-            "Propagation": "rprivate",
-            "NonRecursive": false,
-            "CreateMountpoint": true,
-            "ReadOnlyNonRecursive": false,
-            "ReadOnlyForceRecursive": false,
-        ] as [String: Any])
+        let opts = try decode(
+            [
+                "Propagation": "rprivate",
+                "NonRecursive": false,
+                "CreateMountpoint": true,
+                "ReadOnlyNonRecursive": false,
+                "ReadOnlyForceRecursive": false,
+            ] as [String: Any]
+        )
         #expect(opts.propagation == "rprivate")
         #expect(opts.nonRecursive == false)
         #expect(opts.createMountpoint == true)
@@ -672,12 +686,14 @@ struct ContainerVolumeOptionsTests {
     }
 
     @Test func parsesNoCopyLabelsDriverConfigAndSubpath() throws {
-        let opts = try decode([
-            "NoCopy": false,
-            "Labels": ["com.example.owner": "test"],
-            "DriverConfig": ["Name": "local", "Options": ["device": "tmpfs"]] as [String: Any],
-            "Subpath": "data",
-        ] as [String: Any])
+        let opts = try decode(
+            [
+                "NoCopy": false,
+                "Labels": ["com.example.owner": "test"],
+                "DriverConfig": ["Name": "local", "Options": ["device": "tmpfs"]] as [String: Any],
+                "Subpath": "data",
+            ] as [String: Any]
+        )
         #expect(opts.noCopy == false)
         #expect(opts.labels?["com.example.owner"] == "test")
         #expect(opts.driverConfig != nil)
@@ -721,11 +737,13 @@ struct ContainerTmpfsOptionsTests {
     }
 
     @Test func parsesSizeBytesAndMode() throws {
-        let opts = try decode([
-            "SizeBytes": 67_108_864,
-            "Mode": 493,
-            "Options": [["size", "64m"], ["uid", "1000"]],
-        ] as [String: Any])
+        let opts = try decode(
+            [
+                "SizeBytes": 67_108_864,
+                "Mode": 493,
+                "Options": [["size", "64m"], ["uid", "1000"]],
+            ] as [String: Any]
+        )
         #expect(opts.sizeBytes == 67_108_864)
         #expect(opts.mode == 493)
         #expect(opts.options == [["size", "64m"], ["uid", "1000"]])
@@ -748,13 +766,15 @@ struct ContainerMountPointTests {
     }
 
     @Test func parsesTypeSourceTargetAndReadOnly() throws {
-        let mp = try decode([
-            "Type": "bind",
-            "Source": "/host/path",
-            "Target": "/container/path",
-            "ReadOnly": true,
-            "Consistency": "default",
-        ] as [String: Any])
+        let mp = try decode(
+            [
+                "Type": "bind",
+                "Source": "/host/path",
+                "Target": "/container/path",
+                "ReadOnly": true,
+                "Consistency": "default",
+            ] as [String: Any]
+        )
         #expect(mp.type == "bind")
         #expect(mp.source == "/host/path")
         #expect(mp.target == "/container/path")
@@ -763,37 +783,45 @@ struct ContainerMountPointTests {
     }
 
     @Test func parsesNestedBindOptions() throws {
-        let mp = try decode([
-            "Type": "bind",
-            "BindOptions": ["Propagation": "shared"] as [String: Any],
-        ] as [String: Any])
+        let mp = try decode(
+            [
+                "Type": "bind",
+                "BindOptions": ["Propagation": "shared"] as [String: Any],
+            ] as [String: Any]
+        )
         #expect(mp.bindOptions != nil)
         #expect(mp.bindOptions?.propagation == "shared")
     }
 
     @Test func parsesNestedVolumeOptions() throws {
-        let mp = try decode([
-            "Type": "volume",
-            "VolumeOptions": ["NoCopy": true] as [String: Any],
-        ] as [String: Any])
+        let mp = try decode(
+            [
+                "Type": "volume",
+                "VolumeOptions": ["NoCopy": true] as [String: Any],
+            ] as [String: Any]
+        )
         #expect(mp.volumeOptions != nil)
         #expect(mp.volumeOptions?.noCopy == true)
     }
 
     @Test func parsesNestedTmpfsOptions() throws {
-        let mp = try decode([
-            "Type": "tmpfs",
-            "TmpfsOptions": ["SizeBytes": 1_048_576] as [String: Any],
-        ] as [String: Any])
+        let mp = try decode(
+            [
+                "Type": "tmpfs",
+                "TmpfsOptions": ["SizeBytes": 1_048_576] as [String: Any],
+            ] as [String: Any]
+        )
         #expect(mp.tmpfsOptions != nil)
         #expect(mp.tmpfsOptions?.sizeBytes == 1_048_576)
     }
 
     @Test func parsesNestedImageOptions() throws {
-        let mp = try decode([
-            "Type": "image",
-            "ImageOptions": ["Subpath": "/data"] as [String: Any],
-        ] as [String: Any])
+        let mp = try decode(
+            [
+                "Type": "image",
+                "ImageOptions": ["Subpath": "/data"] as [String: Any],
+            ] as [String: Any]
+        )
         #expect(mp.imageOptions != nil)
         #expect(mp.imageOptions?.subpath == "/data")
     }
@@ -817,13 +845,15 @@ struct ContainerGraphDriverTests {
     }
 
     @Test func parsesNameAndData() throws {
-        let driver = try decode([
-            "Name": "overlay2",
-            "Data": [
-                "LowerDir": "/var/lib/docker/overlay2/abc/diff",
-                "MergedDir": "/var/lib/docker/overlay2/abc/merged",
-            ],
-        ] as [String: Any])
+        let driver = try decode(
+            [
+                "Name": "overlay2",
+                "Data": [
+                    "LowerDir": "/var/lib/docker/overlay2/abc/diff",
+                    "MergedDir": "/var/lib/docker/overlay2/abc/merged",
+                ],
+            ] as [String: Any]
+        )
         #expect(driver.name == "overlay2")
         #expect(driver.data != nil)
         #expect(driver.data?["LowerDir"] != nil)
@@ -845,11 +875,13 @@ struct ContainerIPAMConfigTests {
     }
 
     @Test func parsesAllFields() throws {
-        let config = try decode([
-            "IPv4Address": "10.0.0.5",
-            "IPv6Address": "",
-            "LinkLocalIPs": ["169.254.0.1"],
-        ] as [String: Any])
+        let config = try decode(
+            [
+                "IPv4Address": "10.0.0.5",
+                "IPv6Address": "",
+                "LinkLocalIPs": ["169.254.0.1"],
+            ] as [String: Any]
+        )
         #expect(config.ipv4Address == "10.0.0.5")
         #expect(config.ipv6Address == "")
         #expect(config.linkLocalIPs == ["169.254.0.1"])
@@ -898,7 +930,7 @@ struct ContainerHostConfigNestedTests {
             "Ulimits": [
                 ["Name": "nofile", "Soft": 1024, "Hard": 4096],
                 ["Name": "nproc", "Soft": 512, "Hard": 1024],
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(hc.ulimits != nil)
         #expect(hc.ulimits?.count == 2)
@@ -916,7 +948,7 @@ struct ContainerHostConfigNestedTests {
                     "PathInContainer": "/dev/ttyUSB0",
                     "CgroupPermissions": "rwm",
                 ] as [String: Any]
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(hc.devices != nil)
         #expect(hc.devices?.count == 1)
@@ -934,7 +966,7 @@ struct ContainerHostConfigNestedTests {
                     "Capabilities": [["gpu"]],
                     "Options": [:] as [String: String],
                 ] as [String: Any]
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(hc.deviceRequests != nil)
         #expect(hc.deviceRequests?.first?.driver == "nvidia")
@@ -946,7 +978,7 @@ struct ContainerHostConfigNestedTests {
         let hc = try decode([
             "BlkioWeightDevice": [
                 ["Path": "/dev/sda", "Weight": 500] as [String: Any]
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(hc.blkioWeightDevice != nil)
         #expect(hc.blkioWeightDevice?.first?.path == "/dev/sda")
@@ -954,12 +986,14 @@ struct ContainerHostConfigNestedTests {
     }
 
     @Test func parsesAllFourBlkioDeviceRateLists() throws {
-        let hc = try decode([
-            "BlkioDeviceReadBps": [["Path": "/dev/sda", "Rate": 104_857_600] as [String: Any]] as [Any],
-            "BlkioDeviceWriteBps": [["Path": "/dev/sda", "Rate": 52_428_800] as [String: Any]] as [Any],
-            "BlkioDeviceReadIOps": [["Path": "/dev/sda", "Rate": 1000] as [String: Any]] as [Any],
-            "BlkioDeviceWriteIOps": [["Path": "/dev/sda", "Rate": 500] as [String: Any]] as [Any],
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "BlkioDeviceReadBps": [["Path": "/dev/sda", "Rate": 104_857_600] as [String: Any]] as [Any],
+                "BlkioDeviceWriteBps": [["Path": "/dev/sda", "Rate": 52_428_800] as [String: Any]] as [Any],
+                "BlkioDeviceReadIOps": [["Path": "/dev/sda", "Rate": 1000] as [String: Any]] as [Any],
+                "BlkioDeviceWriteIOps": [["Path": "/dev/sda", "Rate": 500] as [String: Any]] as [Any],
+            ] as [String: Any]
+        )
         #expect(hc.blkioDeviceReadBps?.first?.rate == 104_857_600)
         #expect(hc.blkioDeviceWriteBps?.first?.rate == 52_428_800)
         #expect(hc.blkioDeviceReadIOps?.first?.rate == 1000)
@@ -971,7 +1005,7 @@ struct ContainerHostConfigNestedTests {
             "PortBindings": [
                 "80/tcp": [["HostIp": "0.0.0.0", "HostPort": "32768"] as [String: Any]] as [Any],
                 "443/tcp": NSNull(),
-            ] as [String: Any],
+            ] as [String: Any]
         ])
         #expect(hc.portBindings != nil)
         let bindings80 = hc.portBindings?["80/tcp"]
@@ -998,7 +1032,7 @@ struct ContainerHostConfigNestedTests {
             "LogConfig": [
                 "Type": "json-file",
                 "Config": ["max-size": "10m", "max-file": "5"],
-            ] as [String: Any],
+            ] as [String: Any]
         ])
         #expect(hc.logConfig != nil)
         #expect(hc.logConfig?.type == "json-file")
@@ -1012,7 +1046,7 @@ struct ContainerHostConfigNestedTests {
 
     @Test func parsesNestedRestartPolicy() throws {
         let hc = try decode([
-            "RestartPolicy": ["Name": "on-failure", "MaximumRetryCount": 5] as [String: Any],
+            "RestartPolicy": ["Name": "on-failure", "MaximumRetryCount": 5] as [String: Any]
         ])
         #expect(hc.restartPolicy != nil)
         #expect(hc.restartPolicy?.name == "on-failure")
@@ -1028,8 +1062,9 @@ struct ContainerHostConfigNestedTests {
         let hc = try decode([
             "Mounts": [
                 ["Type": "bind", "Source": "/host/data", "Target": "/data", "ReadOnly": false] as [String: Any],
-                ["Type": "volume", "Source": "/var/lib/docker/volumes/vol/_data", "Target": "/vol", "ReadOnly": true] as [String: Any],
-            ] as [Any],
+                ["Type": "volume", "Source": "/var/lib/docker/volumes/vol/_data", "Target": "/vol", "ReadOnly": true]
+                    as [String: Any],
+            ] as [Any]
         ])
         #expect(hc.mounts != nil)
         #expect(hc.mounts?.count == 2)
@@ -1039,14 +1074,16 @@ struct ContainerHostConfigNestedTests {
     }
 
     @Test func parsesBooleanFlags() throws {
-        let hc = try decode([
-            "Privileged": true,
-            "AutoRemove": true,
-            "ReadonlyRootfs": true,
-            "PublishAllPorts": false,
-            "OomKillDisable": false,
-            "Init": true,
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "Privileged": true,
+                "AutoRemove": true,
+                "ReadonlyRootfs": true,
+                "PublishAllPorts": false,
+                "OomKillDisable": false,
+                "Init": true,
+            ] as [String: Any]
+        )
         #expect(hc.privileged == true)
         #expect(hc.autoRemove == true)
         #expect(hc.readonlyRootfs == true)
@@ -1056,22 +1093,24 @@ struct ContainerHostConfigNestedTests {
     }
 
     @Test func parsesStringListFields() throws {
-        let hc = try decode([
-            "CapAdd": ["NET_ADMIN", "SYS_PTRACE"],
-            "CapDrop": ["MKNOD"],
-            "Dns": ["8.8.8.8", "8.8.4.4"],
-            "DnsSearch": ["example.com"],
-            "DnsOptions": ["ndots:5"],
-            "ExtraHosts": ["host.docker.internal:host-gateway"],
-            "Binds": ["/host:/container:rw"],
-            "VolumesFrom": ["other-container:ro"],
-            "SecurityOpt": ["no-new-privileges:true"],
-            "MaskedPaths": ["/proc/kcore"],
-            "ReadonlyPaths": ["/proc/asound"],
-            "DeviceCgroupRules": ["c 136:* rwm"],
-            "GroupAdd": ["audio"],
-            "Links": [] as [String],
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "CapAdd": ["NET_ADMIN", "SYS_PTRACE"],
+                "CapDrop": ["MKNOD"],
+                "Dns": ["8.8.8.8", "8.8.4.4"],
+                "DnsSearch": ["example.com"],
+                "DnsOptions": ["ndots:5"],
+                "ExtraHosts": ["host.docker.internal:host-gateway"],
+                "Binds": ["/host:/container:rw"],
+                "VolumesFrom": ["other-container:ro"],
+                "SecurityOpt": ["no-new-privileges:true"],
+                "MaskedPaths": ["/proc/kcore"],
+                "ReadonlyPaths": ["/proc/asound"],
+                "DeviceCgroupRules": ["c 136:* rwm"],
+                "GroupAdd": ["audio"],
+                "Links": [] as [String],
+            ] as [String: Any]
+        )
         #expect(hc.capAdd == ["NET_ADMIN", "SYS_PTRACE"])
         #expect(hc.capDrop == ["MKNOD"])
         #expect(hc.dns == ["8.8.8.8", "8.8.4.4"])
@@ -1089,12 +1128,14 @@ struct ContainerHostConfigNestedTests {
     }
 
     @Test func parsesMapFields() throws {
-        let hc = try decode([
-            "Sysctls": ["net.ipv4.ip_forward": "1", "net.core.somaxconn": "1024"],
-            "Tmpfs": ["/tmp": "size=64m,mode=1777"],
-            "StorageOpt": ["size": "10G"],
-            "Annotations": ["com.example.note": "test-run"],
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "Sysctls": ["net.ipv4.ip_forward": "1", "net.core.somaxconn": "1024"],
+                "Tmpfs": ["/tmp": "size=64m,mode=1777"],
+                "StorageOpt": ["size": "10G"],
+                "Annotations": ["com.example.note": "test-run"],
+            ] as [String: Any]
+        )
         #expect(hc.sysctls == ["net.ipv4.ip_forward": "1", "net.core.somaxconn": "1024"])
         #expect(hc.tmpfs == ["/tmp": "size=64m,mode=1777"])
         #expect(hc.storageOpt == ["size": "10G"])
@@ -1102,19 +1143,21 @@ struct ContainerHostConfigNestedTests {
     }
 
     @Test func parsesCpuAndMemoryLimitIntegers() throws {
-        let hc = try decode([
-            "CpuPeriod": 100_000,
-            "CpuQuota": 50_000,
-            "CpuRealtimePeriod": 1_000_000,
-            "CpuRealtimeRuntime": 950_000,
-            "NanoCpus": 500_000_000,
-            "PidsLimit": 100,
-            "ShmSize": 67_108_864,
-            "MemorySwap": -1,
-            "MemorySwappiness": 60,
-            "MemoryReservation": 536_870_912,
-            "KernelMemoryTCP": 0,
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "CpuPeriod": 100_000,
+                "CpuQuota": 50_000,
+                "CpuRealtimePeriod": 1_000_000,
+                "CpuRealtimeRuntime": 950_000,
+                "NanoCpus": 500_000_000,
+                "PidsLimit": 100,
+                "ShmSize": 67_108_864,
+                "MemorySwap": -1,
+                "MemorySwappiness": 60,
+                "MemoryReservation": 536_870_912,
+                "KernelMemoryTCP": 0,
+            ] as [String: Any]
+        )
         #expect(hc.cpuPeriod == 100_000)
         #expect(hc.cpuQuota == 50_000)
         #expect(hc.cpuRealtimePeriod == 1_000_000)
@@ -1135,21 +1178,23 @@ struct ContainerHostConfigNestedTests {
     }
 
     @Test func parsesStringScalarFields() throws {
-        let hc = try decode([
-            "CgroupParent": "/docker",
-            "BlkioWeight": 0,
-            "CgroupnsMode": "private",
-            "Runtime": "runc",
-            "Isolation": "",
-            "IpcMode": "private",
-            "UTSMode": "",
-            "UsernsMode": "",
-            "PidMode": "",
-            "CpusetCpus": "0-3",
-            "CpusetMems": "0",
-            "VolumeDriver": "local",
-            "ContainerIDFile": "/run/cid",
-        ] as [String: Any])
+        let hc = try decode(
+            [
+                "CgroupParent": "/docker",
+                "BlkioWeight": 0,
+                "CgroupnsMode": "private",
+                "Runtime": "runc",
+                "Isolation": "",
+                "IpcMode": "private",
+                "UTSMode": "",
+                "UsernsMode": "",
+                "PidMode": "",
+                "CpusetCpus": "0-3",
+                "CpusetMems": "0",
+                "VolumeDriver": "local",
+                "ContainerIDFile": "/run/cid",
+            ] as [String: Any]
+        )
         #expect(hc.cgroupParent == "/docker")
         #expect(hc.blkioWeight == 0)
         #expect(hc.cgroupnsMode == "private")
@@ -1190,11 +1235,13 @@ struct ContainerNetworkSettingsNullTests {
     }
 
     @Test func handlesNullNetworksAndPorts() throws {
-        let ns = try decode([
-            "IPAddress": "172.17.0.2",
-            "Networks": NSNull(),
-            "Ports": NSNull(),
-        ] as [String: Any])
+        let ns = try decode(
+            [
+                "IPAddress": "172.17.0.2",
+                "Networks": NSNull(),
+                "Ports": NSNull(),
+            ] as [String: Any]
+        )
         #expect(ns.ipAddress == "172.17.0.2")
         #expect(ns.networks == nil)
         #expect(ns.ports == nil)
@@ -1213,7 +1260,7 @@ struct ContainerNetworkSettingsPortsTests {
             "Ports": [
                 "80/tcp": [["HostIp": "0.0.0.0", "HostPort": "32768"] as [String: Any]] as [Any],
                 "443/tcp": [["HostIp": "0.0.0.0", "HostPort": "32769"] as [String: Any]] as [Any],
-            ] as [String: Any],
+            ] as [String: Any]
         ])
         #expect(ns.ports != nil)
         let binding80 = ns.ports?["80/tcp"]??.first
@@ -1225,8 +1272,8 @@ struct ContainerNetworkSettingsPortsTests {
     @Test func parsesPortEntryWhoseValueIsNull() throws {
         let ns = try decode([
             "Ports": [
-                "80/tcp": NSNull(),
-            ] as [String: Any],
+                "80/tcp": NSNull()
+            ] as [String: Any]
         ])
         #expect(ns.ports != nil)
         #expect(ns.ports?["80/tcp"] != nil)
@@ -1243,8 +1290,8 @@ struct ContainerNetworkSettingsPortsTests {
                 "80/tcp": [
                     ["HostIp": "0.0.0.0", "HostPort": "32768"] as [String: Any],
                     ["HostIp": "::", "HostPort": "32768"] as [String: Any],
-                ] as [Any],
-            ] as [String: Any],
+                ] as [Any]
+            ] as [String: Any]
         ])
         #expect(ns.ports?["80/tcp"]??.count == 2)
         #expect(ns.ports?["80/tcp"]??[1].hostIp == "::")
@@ -1265,14 +1312,16 @@ struct ContainerNetworkSettingsScalarTests {
     }
 
     @Test func parsesBridgeSandboxIDHairpinAndLinkLocalIPv6() throws {
-        let ns = try decode([
-            "Bridge": "docker0",
-            "SandboxID": "sandbox123",
-            "HairpinMode": false,
-            "LinkLocalIPv6Address": "fe80::1",
-            "LinkLocalIPv6PrefixLen": 64,
-            "SandboxKey": "/var/run/docker/netns/abc",
-        ] as [String: Any])
+        let ns = try decode(
+            [
+                "Bridge": "docker0",
+                "SandboxID": "sandbox123",
+                "HairpinMode": false,
+                "LinkLocalIPv6Address": "fe80::1",
+                "LinkLocalIPv6PrefixLen": 64,
+                "SandboxKey": "/var/run/docker/netns/abc",
+            ] as [String: Any]
+        )
         #expect(ns.bridge == "docker0")
         #expect(ns.sandboxID == "sandbox123")
         #expect(ns.hairpinMode == false)
@@ -1282,16 +1331,18 @@ struct ContainerNetworkSettingsScalarTests {
     }
 
     @Test func parsesEndpointIDGatewayAndGlobalIPv6() throws {
-        let ns = try decode([
-            "EndpointID": "ep456",
-            "Gateway": "172.17.0.1",
-            "GlobalIPv6Address": "2001:db8::1",
-            "GlobalIPv6PrefixLen": 64,
-            "IPAddress": "172.17.0.2",
-            "IPPrefixLen": 16,
-            "IPv6Gateway": "fe80::1",
-            "MacAddress": "02:42:ac:11:00:02",
-        ] as [String: Any])
+        let ns = try decode(
+            [
+                "EndpointID": "ep456",
+                "Gateway": "172.17.0.1",
+                "GlobalIPv6Address": "2001:db8::1",
+                "GlobalIPv6PrefixLen": 64,
+                "IPAddress": "172.17.0.2",
+                "IPPrefixLen": 16,
+                "IPv6Gateway": "fe80::1",
+                "MacAddress": "02:42:ac:11:00:02",
+            ] as [String: Any]
+        )
         #expect(ns.endpointID == "ep456")
         #expect(ns.gateway == "172.17.0.1")
         #expect(ns.globalIPv6Address == "2001:db8::1")
@@ -1306,7 +1357,7 @@ struct ContainerNetworkSettingsScalarTests {
         let ns = try decode([
             "SecondaryIPv6Addresses": [
                 ["Addr": "2001:db8::2", "PrefixLen": 64] as [String: Any]
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(ns.secondaryIPv6Addresses != nil)
         #expect(ns.secondaryIPv6Addresses?.count == 1)
@@ -1335,15 +1386,17 @@ struct ContainerInspectInfoScalarTests {
     }
 
     @Test func parsesCreatedPathArgsRestartCountDriverPlatform() throws {
-        let info = try decode([
-            "Id": "abc123",
-            "Created": "2024-06-01T12:00:00Z",
-            "Path": "/bin/sh",
-            "Args": ["-c", "echo hello"],
-            "RestartCount": 2,
-            "Driver": "overlay2",
-            "Platform": "linux",
-        ] as [String: Any])
+        let info = try decode(
+            [
+                "Id": "abc123",
+                "Created": "2024-06-01T12:00:00Z",
+                "Path": "/bin/sh",
+                "Args": ["-c", "echo hello"],
+                "RestartCount": 2,
+                "Driver": "overlay2",
+                "Platform": "linux",
+            ] as [String: Any]
+        )
         #expect(info.created == "2024-06-01T12:00:00Z")
         #expect(info.path == "/bin/sh")
         #expect(info.args == ["-c", "echo hello"])
@@ -1353,15 +1406,17 @@ struct ContainerInspectInfoScalarTests {
     }
 
     @Test func parsesHostPathsAndSecurityLabels() throws {
-        let info = try decode([
-            "ResolvConfPath": "/var/lib/docker/containers/abc/resolv.conf",
-            "HostnamePath": "/var/lib/docker/containers/abc/hostname",
-            "HostsPath": "/var/lib/docker/containers/abc/hosts",
-            "LogPath": "/var/lib/docker/containers/abc/json.log",
-            "MountLabel": "",
-            "ProcessLabel": "",
-            "AppArmorProfile": "docker-default",
-        ] as [String: Any])
+        let info = try decode(
+            [
+                "ResolvConfPath": "/var/lib/docker/containers/abc/resolv.conf",
+                "HostnamePath": "/var/lib/docker/containers/abc/hostname",
+                "HostsPath": "/var/lib/docker/containers/abc/hosts",
+                "LogPath": "/var/lib/docker/containers/abc/json.log",
+                "MountLabel": "",
+                "ProcessLabel": "",
+                "AppArmorProfile": "docker-default",
+            ] as [String: Any]
+        )
         #expect(info.resolvConfPath == "/var/lib/docker/containers/abc/resolv.conf")
         #expect(info.hostnamePath == "/var/lib/docker/containers/abc/hostname")
         #expect(info.hostsPath == "/var/lib/docker/containers/abc/hosts")
@@ -1385,7 +1440,7 @@ struct ContainerInspectInfoScalarTests {
             "GraphDriver": [
                 "Name": "overlay2",
                 "Data": ["UpperDir": "/upper", "WorkDir": "/work"],
-            ] as [String: Any],
+            ] as [String: Any]
         ])
         #expect(info.graphDriver != nil)
         #expect(info.graphDriver?.name == "overlay2")
@@ -1403,7 +1458,7 @@ struct ContainerInspectInfoScalarTests {
                 "mediaType": "application/vnd.oci.image.manifest.v1+json",
                 "digest": "sha256:abc",
                 "size": 512,
-            ] as [String: Any],
+            ] as [String: Any]
         ])
         #expect(info.imageManifestDescriptor != nil)
         #expect(info.imageManifestDescriptor?.digest == "sha256:abc")
@@ -1443,19 +1498,21 @@ struct ContainerStateFullTests {
     }
 
     @Test func parsesAllBooleanAndStringStateFields() throws {
-        let state = try decode([
-            "Status": "exited",
-            "Running": false,
-            "Paused": false,
-            "Restarting": false,
-            "OOMKilled": true,
-            "Dead": false,
-            "Pid": 0,
-            "ExitCode": 137,
-            "Error": "container killed",
-            "StartedAt": "2024-05-01T10:00:00Z",
-            "FinishedAt": "2024-05-01T10:00:05Z",
-        ] as [String: Any])
+        let state = try decode(
+            [
+                "Status": "exited",
+                "Running": false,
+                "Paused": false,
+                "Restarting": false,
+                "OOMKilled": true,
+                "Dead": false,
+                "Pid": 0,
+                "ExitCode": 137,
+                "Error": "container killed",
+                "StartedAt": "2024-05-01T10:00:00Z",
+                "FinishedAt": "2024-05-01T10:00:05Z",
+            ] as [String: Any]
+        )
         #expect(state.status == "exited")
         #expect(state.running == false)
         #expect(state.paused == false)
@@ -1486,31 +1543,37 @@ struct ContainerStateFullTests {
     }
 
     @Test func deadTrueIndicatesDeadState() throws {
-        let state = try decode([
-            "Status": "dead",
-            "Dead": true,
-            "Running": false,
-            "ExitCode": 1,
-        ] as [String: Any])
+        let state = try decode(
+            [
+                "Status": "dead",
+                "Dead": true,
+                "Running": false,
+                "ExitCode": 1,
+            ] as [String: Any]
+        )
         #expect(state.dead == true)
         #expect(state.status == "dead")
     }
 
     @Test func restartingTrueIsPreserved() throws {
-        let state = try decode([
-            "Status": "restarting",
-            "Restarting": true,
-            "Running": false,
-        ] as [String: Any])
+        let state = try decode(
+            [
+                "Status": "restarting",
+                "Restarting": true,
+                "Running": false,
+            ] as [String: Any]
+        )
         #expect(state.restarting == true)
     }
 
     @Test func pausedTrueIsPreserved() throws {
-        let state = try decode([
-            "Status": "paused",
-            "Paused": true,
-            "Running": false,
-        ] as [String: Any])
+        let state = try decode(
+            [
+                "Status": "paused",
+                "Paused": true,
+                "Running": false,
+            ] as [String: Any]
+        )
         #expect(state.paused == true)
     }
 }
@@ -1528,7 +1591,7 @@ struct ContainerNetworkSettingsSecondaryAddressTests {
         let ns = try decode([
             "SecondaryIPAddresses": [
                 ["Addr": "172.18.0.5", "PrefixLen": 16] as [String: Any]
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(ns.secondaryIPAddresses != nil)
         #expect(ns.secondaryIPAddresses?.count == 1)
@@ -1543,7 +1606,7 @@ struct ContainerNetworkSettingsSecondaryAddressTests {
                     "Gateway": "172.17.0.1",
                     "NetworkID": "net123",
                 ] as [String: Any]
-            ] as [String: Any],
+            ] as [String: Any]
         ])
         #expect(ns.networks != nil)
         #expect(ns.networks?["bridge"] != nil)
@@ -1566,28 +1629,32 @@ struct ContainerNetworkEndpointExtendedTests {
     }
 
     @Test func parsesMacAddressAndAliases() throws {
-        let ep = try decode([
-            "NetworkID": "net123",
-            "IPAddress": "172.17.0.3",
-            "Gateway": "172.17.0.1",
-            "MacAddress": "02:42:ac:11:00:03",
-            "Aliases": ["container-alias"],
-        ] as [String: Any])
+        let ep = try decode(
+            [
+                "NetworkID": "net123",
+                "IPAddress": "172.17.0.3",
+                "Gateway": "172.17.0.1",
+                "MacAddress": "02:42:ac:11:00:03",
+                "Aliases": ["container-alias"],
+            ] as [String: Any]
+        )
         #expect(ep.macAddress == "02:42:ac:11:00:03")
         #expect(ep.aliases == ["container-alias"])
     }
 
     @Test func parsesNestedIPAMConfig() throws {
-        let ep = try decode([
-            "NetworkID": "net789",
-            "IPAddress": "10.0.0.5",
-            "Gateway": "10.0.0.1",
-            "IPAMConfig": [
-                "IPv4Address": "10.0.0.5",
-                "IPv6Address": "",
-                "LinkLocalIPs": ["169.254.0.1"],
-            ] as [String: Any],
-        ] as [String: Any])
+        let ep = try decode(
+            [
+                "NetworkID": "net789",
+                "IPAddress": "10.0.0.5",
+                "Gateway": "10.0.0.1",
+                "IPAMConfig": [
+                    "IPv4Address": "10.0.0.5",
+                    "IPv6Address": "",
+                    "LinkLocalIPs": ["169.254.0.1"],
+                ] as [String: Any],
+            ] as [String: Any]
+        )
         #expect(ep.ipamConfig != nil)
         #expect(ep.ipamConfig?.ipv4Address == "10.0.0.5")
         #expect(ep.ipamConfig?.linkLocalIPs == ["169.254.0.1"])
@@ -1603,33 +1670,39 @@ struct ContainerNetworkEndpointExtendedTests {
     }
 
     @Test func parsesDnsNames() throws {
-        let ep = try decode([
-            "NetworkID": "net456",
-            "IPAddress": "192.168.1.2",
-            "Gateway": "192.168.1.1",
-            "DNSNames": ["web", "web.mynetwork"],
-        ] as [String: Any])
+        let ep = try decode(
+            [
+                "NetworkID": "net456",
+                "IPAddress": "192.168.1.2",
+                "Gateway": "192.168.1.1",
+                "DNSNames": ["web", "web.mynetwork"],
+            ] as [String: Any]
+        )
         #expect(ep.dnsNames == ["web", "web.mynetwork"])
     }
 
     @Test func parsesDriverOpts() throws {
-        let ep = try decode([
-            "NetworkID": "net_ovl",
-            "IPAddress": "10.1.0.2",
-            "Gateway": "10.1.0.1",
-            "DriverOpts": ["com.docker.network.driver.overlay.vxlanid": "4097"],
-        ] as [String: Any])
+        let ep = try decode(
+            [
+                "NetworkID": "net_ovl",
+                "IPAddress": "10.1.0.2",
+                "Gateway": "10.1.0.1",
+                "DriverOpts": ["com.docker.network.driver.overlay.vxlanid": "4097"],
+            ] as [String: Any]
+        )
         #expect(ep.driverOpts != nil)
         #expect(ep.driverOpts?["com.docker.network.driver.overlay.vxlanid"] == "4097")
     }
 
     @Test func parsesGwPriority() throws {
-        let ep = try decode([
-            "NetworkID": "net1",
-            "IPAddress": "10.0.0.2",
-            "Gateway": "10.0.0.1",
-            "GwPriority": 0,
-        ] as [String: Any])
+        let ep = try decode(
+            [
+                "NetworkID": "net1",
+                "IPAddress": "10.0.0.2",
+                "Gateway": "10.0.0.1",
+                "GwPriority": 0,
+            ] as [String: Any]
+        )
         #expect(ep.gwPriority == 0)
     }
 
@@ -1643,12 +1716,14 @@ struct ContainerNetworkEndpointExtendedTests {
     }
 
     @Test func gwPriorityStoresNonZeroValue() throws {
-        let ep = try decode([
-            "NetworkID": "net1",
-            "IPAddress": "10.0.0.2",
-            "Gateway": "10.0.0.1",
-            "GwPriority": 100,
-        ] as [String: Any])
+        let ep = try decode(
+            [
+                "NetworkID": "net1",
+                "IPAddress": "10.0.0.2",
+                "Gateway": "10.0.0.1",
+                "GwPriority": 100,
+            ] as [String: Any]
+        )
         #expect(ep.gwPriority == 100)
     }
 }
@@ -1673,7 +1748,7 @@ struct ContainerInspectInfoRoundTripTests {
                     "RW": true,
                     "Propagation": "",
                 ] as [String: Any]
-            ] as [Any],
+            ] as [Any]
         ])
         #expect(info.mounts != nil)
         #expect(info.mounts?.count == 1)

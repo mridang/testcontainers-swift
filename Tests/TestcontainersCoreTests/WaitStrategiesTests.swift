@@ -871,7 +871,7 @@ struct HttpWaitStrategyInternalStateTests {
         #expect(header.hasPrefix("Basic "))
         let encoded = String(header.dropFirst(6))
         guard let data = Data(base64Encoded: encoded),
-              let decoded = String(data: data, encoding: .utf8)
+            let decoded = String(data: data, encoding: .utf8)
         else {
             Issue.record("Base64 decode failed")
             return

@@ -321,7 +321,7 @@ struct ComposeAdditionalUnitTests {
     @Test func publisherThrowsWhenByHostNoMatch() {
         let container = ComposeContainer(
             publishers: [
-                PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 32768, protocol_: "tcp"),
+                PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 32768, protocol_: "tcp")
             ]
         )
         #expect(throws: NoSuchPortExposed.self) {
@@ -373,7 +373,7 @@ struct ComposeAdditionalUnitTests {
         // Nil url: contains(":") returns false → treated as IPv4.
         let container = ComposeContainer(
             publishers: [
-                PublishedPortModel(targetPort: 80, publishedPort: 32768, protocol_: "tcp"),
+                PublishedPortModel(targetPort: 80, publishedPort: 32768, protocol_: "tcp")
             ]
         )
         let pub = try container.publisher(byPort: 80, preferIpVersion: .ipv4)
@@ -383,7 +383,7 @@ struct ComposeAdditionalUnitTests {
     @Test func publisherWithNilUrlExcludedForIpv6() {
         let container = ComposeContainer(
             publishers: [
-                PublishedPortModel(targetPort: 80, publishedPort: 32768, protocol_: "tcp"),
+                PublishedPortModel(targetPort: 80, publishedPort: 32768, protocol_: "tcp")
             ]
         )
         #expect(throws: NoSuchPortExposed.self) {
@@ -496,14 +496,16 @@ struct ComposeAdditionalUnitTests {
 
     @Test func ipVersionEnumHasIpv4Case() {
         let v: IpVersion = .ipv4
-        if case .ipv4 = v { } else {
+        if case .ipv4 = v {
+        } else {
             Issue.record("IpVersion.ipv4 case missing")
         }
     }
 
     @Test func ipVersionEnumHasIpv6Case() {
         let v: IpVersion = .ipv6
-        if case .ipv6 = v { } else {
+        if case .ipv6 = v {
+        } else {
             Issue.record("IpVersion.ipv6 case missing")
         }
     }
