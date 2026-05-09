@@ -100,7 +100,12 @@ public class DockerClient: @unchecked Sendable {
             self.baseURL = normalized
             self.httpClient = HTTPClient(eventLoopGroupProvider: .singleton)
         } else {
-            let encoded = socketPath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? socketPath
+            // AsyncHTTPClient requires the Unix socket path in the URL authority
+            // (host) component with every '/' percent-encoded as '%2F', e.g.
+            // http+unix://%2Fvar%2Frun%2Fdocker.sock
+            // Using .urlPathAllowed keeps '/' unencoded → empty host → missingSocketPath.
+            // .urlHostAllowed excludes '/' so slashes are encoded correctly.
+            let encoded = socketPath.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? socketPath
             self.baseURL = "http+unix://\(encoded)"
             self.httpClient = HTTPClient(eventLoopGroupProvider: .singleton)
         }
