@@ -59,11 +59,11 @@ public func parseDockerAuthConfig(_ authConfig: String) throws -> [DockerAuthInf
     }
 
     if json["credHelpers"] != nil, let warning = credHelpersWarning {
-        fputs("\(warning)\n", stderr)
+        FileHandle.standardError.write(Data("\(warning)\n".utf8))
         credHelpersWarning = nil
     }
     if json["credsStore"] != nil, let warning = credsStoreWarning {
-        fputs("\(warning)\n", stderr)
+        FileHandle.standardError.write(Data("\(warning)\n".utf8))
         credsStoreWarning = nil
     }
 
@@ -81,11 +81,10 @@ public func parseDockerAuthConfig(_ authConfig: String) throws -> [DockerAuthInf
             throw AuthParseError.invalidBase64(registry)
         }
         guard let colonIdx = authStr.firstIndex(of: ":") else {
-            fputs(
+            let msg =
                 "testcontainers: skipping auth entry for registry \"\(registry)\" — "
-                    + "decoded credentials contain no colon separator.\n",
-                stderr
-            )
+                + "decoded credentials contain no colon separator.\n"
+            FileHandle.standardError.write(Data(msg.utf8))
             continue
         }
         let username = String(authStr[authStr.startIndex..<colonIdx])

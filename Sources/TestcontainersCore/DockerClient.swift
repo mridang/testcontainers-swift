@@ -195,7 +195,7 @@ public class DockerClient: @unchecked Sendable {
             let data = try JSONSerialization.data(withJSONObject: body)
             req.headers.add(name: "Content-Type", value: "application/json")
             req.headers.add(name: "Content-Length", value: "\(data.count)")
-            req.body = .bytes(ByteBuffer(data: data))
+            req.body = .bytes(ByteBuffer(bytes: data))
         } else if let raw = rawBody {
             req.headers.add(name: "Content-Length", value: "\(raw.count)")
             req.body = .bytes(ByteBuffer(data: raw))
