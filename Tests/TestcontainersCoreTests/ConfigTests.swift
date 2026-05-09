@@ -199,6 +199,18 @@ struct ResolveFlagTests {
         config.tcProperties["ryuk.container.privileged"] = "1"
         #expect(config.ryukPrivileged == true)
     }
+
+    @Test func tokenUppercaseSingleCharTIsTrue() throws {
+        let config = try TestcontainersConfiguration()
+        config.tcProperties["ryuk.disabled"] = "T"
+        #expect(config.ryukDisabled == true)
+    }
+
+    @Test func tokenUppercaseSingleCharYIsTrue() throws {
+        let config = try TestcontainersConfiguration()
+        config.tcProperties["ryuk.disabled"] = "Y"
+        #expect(config.ryukDisabled == true)
+    }
 }
 
 @Suite("TestcontainersConfiguration additional defaults")

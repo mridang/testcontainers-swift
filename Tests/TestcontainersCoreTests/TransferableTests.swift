@@ -116,10 +116,14 @@ struct TransferableTests {
         #expect(names.contains(where: { $0.contains("a.txt") }))
     }
 
-    @Test func throwsForNonExistentFilePath() {
-        let fakeURL = URL(fileURLWithPath: "/tmp/__does_not_exist_\(Int.random(in: 1...99999))__")
-        #expect(throws: TransferableError.self) {
+    @Test func throwsForNonExistentFilePath() throws {
+        let fakePath = "/tmp/__does_not_exist_\(Int.random(in: 1...99999))__"
+        let fakeURL = URL(fileURLWithPath: fakePath)
+        do {
             _ = try buildTransferTar(.path(fakeURL), destination: "/tmp/bad")
+            Issue.record("Expected TransferableError to be thrown")
+        } catch let error as TransferableError {
+            #expect(String(describing: error).contains(fakePath))
         }
     }
 
@@ -144,10 +148,14 @@ struct TransferableTests {
         #expect(entries.isEmpty)
     }
 
-    @Test func throwsForNonExistentDirectoryPath() {
-        let fakeDir = URL(fileURLWithPath: "/tmp/__non_existent_dir_\(Int.random(in: 1...99999))__/")
-        #expect(throws: TransferableError.self) {
+    @Test func throwsForNonExistentDirectoryPath() throws {
+        let fakePath = "/tmp/__non_existent_dir_\(Int.random(in: 1...99999))__/"
+        let fakeDir = URL(fileURLWithPath: fakePath)
+        do {
             _ = try buildTransferTar(.path(fakeDir), destination: "/dest")
+            Issue.record("Expected TransferableError to be thrown")
+        } catch let error as TransferableError {
+            #expect(String(describing: error).contains(fakePath) || String(describing: error).contains("non_existent"))
         }
     }
 

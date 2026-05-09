@@ -4,6 +4,12 @@ import Testing
 
 @testable import TestcontainersCompose
 
+#if canImport(Darwin)
+    import Darwin
+#else
+    import Glibc
+#endif
+
 // MARK: - Helpers
 
 private func fixturesPath() -> String {
@@ -801,6 +807,98 @@ struct ComposeIntegrationTests {
             let ns = info?.getNetworkSettings()
             #expect(ns != nil)
         }
+    }
+}
+
+// MARK: - DockerCompose.waitFor unit tests
+
+@Suite("DockerCompose waitFor unit tests")
+struct DockerComposeWaitForTests {
+    @Test func waitForReturnsSelfWhenURLResponds200() async throws {
+        let server = ComposeTestHTTPServer()
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let dc = DockerCompose(context: "/tmp")
+        let result = try await dc.waitFor(url: "http://127.0.0.1:\(server.port)/")
+        #expect(result === dc)
+    }
+
+    @Test func waitForSucceedsFor201CreatedResponse() async throws {
+        let server = ComposeTestHTTPServer(defaultStatus: 201)
+        try server.start()
+        defer { server.stop() }
+        try await Task.sleep(for: .milliseconds(50))
+        let dc = DockerCompose(context: "/tmp")
+        let result = try await dc.waitFor(url: "http://127.0.0.1:\(server.port)/")
+        #expect(result === dc)
+    }
+}
+
+// MARK: - DockerCompose.config raw parameters (integration, requires Docker)
+
+extension ComposeIntegrationTests {
+    @Test func composeConfigRaw() async throws {
+        for fixtureName in ["basic", "basic_multiple", "basic_volume", "port_single", "port_multiple"] {
+            let compose = DockerCompose(context: fixture(fixtureName))
+            try await compose.start()
+            defer { try? compose.stop() }
+            let cfg = try compose.config(pathResolution: false, normalize: false, interpolate: false)
+            #expect(!cfg.isEmpty)
+        }
+    }
+}
+
+// MARK: - Minimal HTTP server for waitFor unit tests
+
+private final class ComposeTestHTTPServer {
+    private(set) var port: Int = 0
+    private var listenFD: Int32 = -1
+    private let status: Int
+
+    init(defaultStatus: Int = 200) {
+        self.status = defaultStatus
+    }
+
+    func start() throws {
+        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard listenFD >= 0 else { return }
+        var opt: Int32 = 1
+        setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &opt, socklen_t(MemoryLayout<Int32>.size))
+        var addr = sockaddr_in()
+        memset(&addr, 0, MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        addr.sin_port = 0
+        _ = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        listen(listenFD, 10)
+        var addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+        withUnsafeMutablePointer(to: &addr) { ptr in
+            _ = ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(listenFD, $0, &addrLen) }
+        }
+        port = Int(UInt16(bigEndian: addr.sin_port))
+        let fd = listenFD
+        let st = status
+        Thread.detachNewThread {
+            while true {
+                let client = accept(fd, nil, nil)
+                if client < 0 { break }
+                var buf = [UInt8](repeating: 0, count: 2048)
+                recv(client, &buf, buf.count, 0)
+                let resp = "HTTP/1.1 \(st) Status\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                let d = Data(resp.utf8)
+                d.withUnsafeBytes { _ = send(client, $0.baseAddress, d.count, 0) }
+                close(client)
+            }
+        }
+    }
+
+    func stop() {
+        if listenFD >= 0 { close(listenFD); listenFD = -1 }
     }
 }
 
