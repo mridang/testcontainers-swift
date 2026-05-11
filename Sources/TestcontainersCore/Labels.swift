@@ -31,7 +31,7 @@ public let labelLang = "org.testcontainers.lang"
 ///
 /// Hardcoded constant — kept in sync with git tags on every release by
 /// the `.releaserc.json` `prepareCmd` step.
-public let tcVersion = "1.0.3"
+public let tcVersion = "1.0.4"
 
 /// The language binding identifier placed in `labelLang`.
 public let labelLangValue = "swift"
