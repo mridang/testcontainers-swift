@@ -541,8 +541,8 @@ private func expandVars(_ value: String, using resolved: [String: String]) -> St
 /// connection is dropped. This ensures containers don't accumulate even when
 /// the test process crashes.
 public final actor Reaper {
-    private static var _instance: Reaper?
-    private static var _initTask: Task<Reaper, Error>?
+    private nonisolated(unsafe) static var _instance: Reaper?
+    private nonisolated(unsafe) static var _initTask: Task<Reaper, Error>?
 
     private var reaperSocket: FileHandle?
     private var reaperContainer: DockerContainer?
