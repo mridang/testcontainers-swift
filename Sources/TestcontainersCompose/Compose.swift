@@ -58,8 +58,17 @@ public struct PublishedPortModel {
     /// - SSH Docker host: loopback addresses are replaced with the SSH hostname.
     /// - Windows: `0.0.0.0` is replaced with `127.0.0.1`.
     public func normalize() -> PublishedPortModel {
+        normalize(sshHost: dockerHostHostname())
+    }
+
+    /// Internal normalisation with an explicit SSH hostname.
+    ///
+    /// Passing `sshHost: nil` skips SSH rewrites and applies only the
+    /// Windows `0.0.0.0` → `127.0.0.1` rule. Used by tests so they can
+    /// exercise normalisation logic without touching the global configuration.
+    func normalize(sshHost: String?) -> PublishedPortModel {
         var normalizedUrl = url
-        if let ssh = dockerHostHostname() {
+        if let ssh = sshHost {
             if url == "0.0.0.0" || url == "127.0.0.1" || url == "localhost"
                 || url == "::" || url == "::1"
             {
@@ -188,13 +197,14 @@ public class ComposeContainer: WaitStrategyTarget {
                     + "byHost=\(byHost ?? "any"), preferIpVersion=\(preferIpVersion))"
             )
         }
-        if remaining.count != 1 {
-            throw NoSuchPortExposed(
-                "Ambiguous publisher for service \(service ?? "?"): expected exactly 1 "
-                    + "but found \(remaining.count) "
-                    + "(byPort=\(byPort.map { "\($0)" } ?? "any"), "
-                    + "byHost=\(byHost ?? "any"), preferIpVersion=\(preferIpVersion))"
-            )
+        if remaining.count > 1 {
+            // Multiple bindings for the same IP version (common on Linux where Docker
+            // creates both an IPv4-wildcard and a host-specific binding).
+            // Prefer the wildcard address so the result is deterministic.
+            let wildcard = preferIpVersion == .ipv6 ? "::" : "0.0.0.0"
+            if let preferred = remaining.first(where: { $0.url == wildcard }) {
+                return preferred
+            }
         }
         return remaining[0]
     }

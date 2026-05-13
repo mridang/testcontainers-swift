@@ -59,63 +59,27 @@ struct ComposeUnitTests {
     }
 
     @Test func normalizeSSH_replacesWildcard() {
-        let saved = testcontainersConfig.tcProperties["tc.host"]
-        defer {
-            if let saved = saved {
-                testcontainersConfig.tcProperties["tc.host"] = saved
-            } else {
-                testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
-            }
-        }
-        testcontainersConfig.tcProperties["tc.host"] = "ssh://user@10.0.0.5"
         let model = PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-        let result = model.normalize()
+        let result = model.normalize(sshHost: "10.0.0.5")
         #expect(result.url == "10.0.0.5")
         #expect(result.publishedPort == 9999)
     }
 
     @Test func normalizeSSH_replacesLoopback() {
-        let saved = testcontainersConfig.tcProperties["tc.host"]
-        defer {
-            if let saved = saved {
-                testcontainersConfig.tcProperties["tc.host"] = saved
-            } else {
-                testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
-            }
-        }
-        testcontainersConfig.tcProperties["tc.host"] = "ssh://user@10.0.0.5"
         let model = PublishedPortModel(url: "127.0.0.1", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-        let result = model.normalize()
+        let result = model.normalize(sshHost: "10.0.0.5")
         #expect(result.url == "10.0.0.5")
     }
 
     @Test func normalizeSSH_replacesIpv6Any() {
-        let saved = testcontainersConfig.tcProperties["tc.host"]
-        defer {
-            if let saved = saved {
-                testcontainersConfig.tcProperties["tc.host"] = saved
-            } else {
-                testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
-            }
-        }
-        testcontainersConfig.tcProperties["tc.host"] = "ssh://user@10.0.0.5"
         let model = PublishedPortModel(url: "::", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-        let result = model.normalize()
+        let result = model.normalize(sshHost: "10.0.0.5")
         #expect(result.url == "10.0.0.5")
     }
 
     @Test func normalizeNonSSH_keepsOriginal() {
-        let saved = testcontainersConfig.tcProperties["tc.host"]
-        defer {
-            if let saved = saved {
-                testcontainersConfig.tcProperties["tc.host"] = saved
-            } else {
-                testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
-            }
-        }
-        testcontainersConfig.tcProperties["tc.host"] = "tcp://localhost:2375"
         let model = PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-        let result = model.normalize()
+        let result = model.normalize(sshHost: nil)
         #expect(result.url == "0.0.0.0")
     }
 
@@ -142,17 +106,8 @@ struct ComposeUnitTests {
     }
 
     @Test func normalizeReturnsSelfWhenNoChange() {
-        let saved = testcontainersConfig.tcProperties["tc.host"]
-        defer {
-            if let saved = saved {
-                testcontainersConfig.tcProperties["tc.host"] = saved
-            } else {
-                testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
-            }
-        }
-        testcontainersConfig.tcProperties.removeValue(forKey: "tc.host")
         let model = PublishedPortModel(url: "10.0.0.1", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-        let result = model.normalize()
+        let result = model.normalize(sshHost: nil)
         #expect(result.url == "10.0.0.1")
     }
 
@@ -224,62 +179,50 @@ struct ComposeAdditionalUnitTests {
     // -------------------------------------------------------------------------
 
     @Test func normalizeNonSSH_keepsTcpOriginal() {
-        withTcHost("tcp://localhost:2375") {
-            let model = PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-            let result = model.normalize()
-            // TCP is not SSH — no rewrite expected.
-            #expect(result.url == "0.0.0.0")
-            #expect(result.publishedPort == 9999)
-        }
+        let model = PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
+        let result = model.normalize(sshHost: nil)
+        // No SSH host — no rewrite expected.
+        #expect(result.url == "0.0.0.0")
+        #expect(result.publishedPort == 9999)
     }
 
     @Test func normalizeReturnsSameInstanceWhenNoRewrite() {
-        withTcHost(nil) {
-            let model = PublishedPortModel(url: "192.168.1.1", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-            let result = model.normalize()
-            // No SSH host and not 0.0.0.0 on Windows — identical object expected.
-            #expect(result.url == "192.168.1.1")
-            #expect(result.publishedPort == 9999)
-        }
+        let model = PublishedPortModel(url: "192.168.1.1", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
+        let result = model.normalize(sshHost: nil)
+        // No SSH host and not 0.0.0.0 on Windows — identical object expected.
+        #expect(result.url == "192.168.1.1")
+        #expect(result.publishedPort == 9999)
     }
 
     @Test func normalizeSSH_replacesLocalhostUrl() {
-        withTcHost("ssh://user@myhost.example.com") {
-            let model = PublishedPortModel(url: "localhost", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-            let result = model.normalize()
-            #expect(result.url == "myhost.example.com")
-            #expect(result.publishedPort == 9999)
-        }
+        let model = PublishedPortModel(url: "localhost", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
+        let result = model.normalize(sshHost: "myhost.example.com")
+        #expect(result.url == "myhost.example.com")
+        #expect(result.publishedPort == 9999)
     }
 
     @Test func normalizeSSH_replacesIpv6Loopback() {
-        withTcHost("ssh://user@myhost.example.com") {
-            let model = PublishedPortModel(url: "::1", targetPort: 443, publishedPort: 8443, protocol_: "tcp")
-            let result = model.normalize()
-            #expect(result.url == "myhost.example.com")
-            #expect(result.publishedPort == 8443)
-        }
+        let model = PublishedPortModel(url: "::1", targetPort: 443, publishedPort: 8443, protocol_: "tcp")
+        let result = model.normalize(sshHost: "myhost.example.com")
+        #expect(result.url == "myhost.example.com")
+        #expect(result.publishedPort == 8443)
     }
 
     @Test func normalizeSSH_doesNotRewritePublicIp() {
-        // A public IP is not in the loopback set — no rewrite.
-        withTcHost("ssh://user@remote.example.com") {
-            let model = PublishedPortModel(url: "203.0.113.5", targetPort: 80, publishedPort: 32770, protocol_: "tcp")
-            let result = model.normalize()
-            #expect(result.url == "203.0.113.5")
-        }
+        let model = PublishedPortModel(url: "203.0.113.5", targetPort: 80, publishedPort: 32770, protocol_: "tcp")
+        let result = model.normalize(sshHost: "remote.example.com")
+        // Public IP is not in the loopback set — no rewrite expected.
+        #expect(result.url == "203.0.113.5")
     }
 
     @Test func normalizeSSH_returnsNewInstanceWhenRewritten() {
-        withTcHost("ssh://user@myhost.example.com") {
-            let model = PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
-            let result = model.normalize()
-            // URL was rewritten — result is a different instance with all other fields preserved.
-            #expect(result.url == "myhost.example.com")
-            #expect(result.targetPort == 80)
-            #expect(result.publishedPort == 9999)
-            #expect(result.protocol_ == "tcp")
-        }
+        let model = PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 9999, protocol_: "tcp")
+        let result = model.normalize(sshHost: "myhost.example.com")
+        // URL was rewritten — result is a different instance with all other fields preserved.
+        #expect(result.url == "myhost.example.com")
+        #expect(result.targetPort == 80)
+        #expect(result.publishedPort == 9999)
+        #expect(result.protocol_ == "tcp")
     }
 
     // -------------------------------------------------------------------------
@@ -337,17 +280,17 @@ struct ComposeAdditionalUnitTests {
         }
     }
 
-    @Test func publisherThrowsWhenAmbiguous() {
-        // Two IPv4 publishers on the same target port — ambiguous.
+    @Test func publisherPrefersWildcardWhenMultipleIpv4() throws {
+        // Two IPv4 publishers for the same port (common on Linux Docker).
+        // The wildcard binding (0.0.0.0) should be preferred.
         let container = ComposeContainer(
             publishers: [
                 PublishedPortModel(url: "0.0.0.0", targetPort: 80, publishedPort: 32768, protocol_: "tcp"),
                 PublishedPortModel(url: "127.0.0.1", targetPort: 80, publishedPort: 32769, protocol_: "tcp"),
             ]
         )
-        #expect(throws: NoSuchPortExposed.self) {
-            _ = try container.publisher(byPort: 80)
-        }
+        let pub = try container.publisher(byPort: 80)
+        #expect(pub.publishedPort == 32768)
     }
 
     // -------------------------------------------------------------------------
@@ -680,7 +623,8 @@ struct ComposeAdditionalUnitTests {
         }
     }
 
-    @Test func publisherAmbiguousErrorMessageContainsCount() {
+    @Test func publisherPrefersWildcardWithThreeIpv4Bindings() throws {
+        // Three IPv4 publishers — wildcard (0.0.0.0) should be returned.
         let container = ComposeContainer(
             service: "web",
             publishers: [
@@ -689,15 +633,8 @@ struct ComposeAdditionalUnitTests {
                 PublishedPortModel(url: "10.0.0.1", targetPort: 80, publishedPort: 32770, protocol_: "tcp"),
             ]
         )
-        do {
-            _ = try container.publisher(byPort: 80)
-            Issue.record("Expected NoSuchPortExposed to be thrown")
-        } catch let error as NoSuchPortExposed {
-            let message = String(describing: error)
-            #expect(message.contains("3") || message.contains("ambiguous") || message.contains("Ambiguous"))
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
-        }
+        let pub = try container.publisher(byPort: 80)
+        #expect(pub.publishedPort == 32768)
     }
 
     @Test func waitingForReturnsSelfForChaining() {
