@@ -1,13 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.0/.schema/devbox.schema.json",
   "packages": [
+    "github:mridang/nixpkgs?dir=pkgs/swift#swift",
     "docker@latest",
     "swiftlint@latest"
   ],
   "shell": {
     "init_hook": [
-      "unset NIX_CC NIX_CC_WRAPPER_TARGET_HOST_aarch64_apple_darwin NIX_BINTOOLS NIX_BINTOOLS_WRAPPER_TARGET_HOST_aarch64_apple_darwin NIX_CFLAGS_COMPILE NIX_LDFLAGS NIX_HARDENING_ENABLE NIX_ENFORCE_NO_NATIVE NIX_DONT_SET_RPATH NIX_IGNORE_LD_THROUGH_GCC",
-      "export PATH=\"/usr/bin:/usr/local/bin:$PATH\""
+      "unset NIX_CC NIX_CC_WRAPPER_TARGET_HOST_aarch64_apple_darwin NIX_BINTOOLS NIX_BINTOOLS_WRAPPER_TARGET_HOST_aarch64_apple_darwin NIX_CFLAGS_COMPILE NIX_LDFLAGS NIX_HARDENING_ENABLE NIX_ENFORCE_NO_NATIVE NIX_DONT_SET_RPATH NIX_IGNORE_LD_THROUGH_GCC"
     ],
     "scripts": {
       "build":            "swift build",
