@@ -7,9 +7,7 @@
   ],
   "shell": {
     "init_hook": [
-      "unset NIX_CC NIX_CC_WRAPPER_TARGET_HOST_aarch64_apple_darwin NIX_BINTOOLS NIX_BINTOOLS_WRAPPER_TARGET_HOST_aarch64_apple_darwin NIX_CFLAGS_COMPILE NIX_LDFLAGS NIX_HARDENING_ENABLE NIX_ENFORCE_NO_NATIVE NIX_DONT_SET_RPATH NIX_IGNORE_LD_THROUGH_GCC",
-      "export PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -Ev 'clang-wrapper|cctools-binutils' | tr '\\n' ':' | sed 's/:$//')",
-      "if command -v xcode-select >/dev/null 2>&1; then export DYLD_FRAMEWORK_PATH=\"$(xcode-select -p)/usr/lib${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}\"; fi"
+      "source \"$(readlink -f \"$(which swift)\" | sed 's|/usr/bin.*||')/nix-support/setup-hook\""
     ],
     "scripts": {
       "build":            "swift build",
