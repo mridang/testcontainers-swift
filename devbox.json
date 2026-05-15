@@ -6,9 +6,6 @@
     "swiftlint@latest"
   ],
   "shell": {
-    "init_hook": [
-      "source \"$(readlink -f \"$(which swift)\" | sed 's|/usr/bin.*||')/nix-support/setup-hook\""
-    ],
     "scripts": {
       "build":            "swift build",
       "test":             "swift test",
