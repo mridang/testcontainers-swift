@@ -1,13 +1,13 @@
 {
-  "originHash" : "ab28829b4a786b609ed33aa841781745c36902063930d44d6cb8b2b5db48e0a0",
+  "originHash" : "fd21201ca14345bd01321e03a3506c838b5b8a78d13ed1d9f092c6f005e92ff4",
   "pins" : [
     {
       "identity" : "async-http-client",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/async-http-client.git",
       "state" : {
-        "revision" : "4b99975677236d13f0754339864e5360142ff5a1",
-        "version" : "1.30.3"
+        "revision" : "3a5b74a58782c3b4c1f0bc75e9b67b10c2494e8f",
+        "version" : "1.33.1"
       }
     },
     {
@@ -62,6 +62,15 @@
       "state" : {
         "revision" : "03cc312c2c933ed87abace34044a5dff7a3117c1",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "swift-configuration",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-configuration.git",
+      "state" : {
+        "revision" : "be76c4ad929eb6c4bcaf3351799f2adf9e6848a9",
+        "version" : "1.2.0"
       }
     },
     {
