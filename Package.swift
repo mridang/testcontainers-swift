@@ -11,7 +11,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/swift-server/async-http-client.git",
-            "1.21.0"..<"1.31.0"
+            "1.21.0"..<"2.0.0"
         ),
     ],
     targets: [
