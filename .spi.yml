@@ -1,0 +1,11 @@
+version: 1
+builder:
+  configs:
+    - platform: macos-spm
+      swift_version: "6.0"
+    - platform: macos-spm
+      swift_version: "6.1"
+    - platform: linux-spm
+      swift_version: "6.0"
+    - platform: linux-spm
+      swift_version: "6.1"
