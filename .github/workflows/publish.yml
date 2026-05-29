@@ -6,14 +6,20 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: ./
+
 jobs:
   validate:
     name: Validate package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: swift-actions/setup-swift@v2
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
         with:
           swift-version: "6.2"
 
@@ -22,6 +28,8 @@ jobs:
         with:
           path: .build
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
 
       - name: Validate Package.swift
         run: swift package dump-package

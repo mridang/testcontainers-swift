@@ -8,7 +8,7 @@ assignees: ''
 
 **Versions Used**
 
-<!-- Swift version, macOS/Linux version, Docker version, testcontainers-swift version -->
+<!-- The ver. -->
 
 **Description**
 

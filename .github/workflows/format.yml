@@ -32,7 +32,7 @@ jobs:
       - name: Apply swift-format
         run: swift format --recursive --in-place Sources Tests
 
-      - name: Commit changes
+      - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: Apply swift-format
