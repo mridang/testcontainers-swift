@@ -1,4 +1,4 @@
-name: Release to GitHub
+name: Release to Github
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 defaults:
   run:

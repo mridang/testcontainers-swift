@@ -63,7 +63,7 @@ jobs:
           BINARY="$BINPATH/testcontainers-swiftPackageTests"
           PROFDATA="$BINPATH/codecov/default.profdata"
           if [ -f "$PROFDATA" ]; then
-            llvm-cov export -format=lcov "$BINARY" -instr-profile "$PROFDATA" > .out/lcov.info || true
+            llvm-cov export -format=lcov "$BINARY" -instr-profile "$PROFDATA" > .out/lcov.info
           fi
 
       - name: Generate coverage report
