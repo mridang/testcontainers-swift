@@ -52,12 +52,13 @@ jobs:
         run: swift build
 
       - name: Test
-        run: swift test --enable-code-coverage
+        run: |
+          mkdir -p .out
+          swift test --enable-code-coverage --xunit-output .out/junit.xml
 
       - name: Export coverage
         if: always()
         run: |
-          mkdir -p .out
           BINPATH=$(swift build --show-bin-path)
           BINARY="$BINPATH/testcontainers-swiftPackageTests"
           PROFDATA="$BINPATH/codecov/default.profdata"
@@ -67,7 +68,6 @@ jobs:
 
       - name: Generate coverage
         if: always()
-        continue-on-error: true
         uses: mridang/action-test-reporter@v3
         with:
           results-path: '.out/junit.xml'
