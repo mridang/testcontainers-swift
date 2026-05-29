@@ -14,10 +14,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker
-        uses: crazy-max/ghaction-setup-docker@v4
+        uses: crazy-max/ghaction-setup-docker@v5
         with:
           lima-config: |
             vmType: vz
@@ -26,7 +26,7 @@ jobs:
               binfmt: false
 
       - name: Cache Docker layers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ./docker_images
           key: ${{ runner.os }}-docker-${{ hashFiles('**/compose.yaml', '**/docker-compose.yaml') }}
@@ -45,12 +45,12 @@ jobs:
           fi
 
       - name: Setup Swift
-        uses: swift-actions/setup-swift@v2
+        uses: swift-actions/setup-swift@v3
         with:
           swift-version: "6.2"
 
       - name: Cache Swift packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .build
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
