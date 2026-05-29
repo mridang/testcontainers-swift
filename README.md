@@ -79,7 +79,7 @@ try await DockerCompose.use(
 
 ## Prerequisites
 
-- Swift 6.1 or later
+- Swift 6.0 or later
 - Docker Desktop or Docker Engine
 - [devbox](https://www.jetpack.io/devbox) (for local development)
 
@@ -95,7 +95,7 @@ devbox run test:integration # integration tests (requires Docker)
 devbox run lint             # swiftlint lint --strict
 devbox run lint:fix         # swiftlint --fix
 devbox run format           # swift format --in-place
-devbox run format:check     # swift format --dry-run
+devbox run format:check     # swift format lint --recursive Sources Tests
 devbox run doc              # generate documentation
 ```
 
