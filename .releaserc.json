@@ -12,8 +12,16 @@
       }
     ],
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "swift build"
+      }
+    ],
+    [
       "@semantic-release/github",
       {
+        "successComment": false,
+        "failComment": false,
         "assets": []
       }
     ],
