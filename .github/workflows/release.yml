@@ -31,6 +31,8 @@ jobs:
         with:
           path: .build
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
 
       - name: Record current latest tag
         id: before
@@ -41,7 +43,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.16'
+          node-version-file: '.nvmrc'
 
       - name: Semantic release
         uses: mridang/action-semantic-release@v2
