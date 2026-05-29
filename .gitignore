@@ -24,5 +24,8 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# Devbox
+.devbox/
+
 # Docker image cache (CI only)
 docker_images/
