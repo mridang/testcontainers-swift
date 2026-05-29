@@ -3,7 +3,7 @@ name: Run Tests (swift test)
 on: push
 
 permissions:
-  contents: write
+  contents: read
 
 defaults:
   run:
