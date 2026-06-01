@@ -19,25 +19,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: ./docker_images
-          key: ${{ runner.os }}-docker-${{ hashFiles('**/compose.yaml', '**/docker-compose.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
-
-      - name: Docker pull
-        run: |
-          mkdir -p docker_images
-          if [ -f docker_images/combined_images.tar ]; then
-            docker image load -i docker_images/combined_images.tar
-          else
-            docker pull alpine:latest
-            docker pull nginx:alpine-slim
-            docker image save alpine:latest nginx:alpine-slim -o docker_images/combined_images.tar
-          fi
-
       - name: Setup Swift
         uses: swift-actions/setup-swift@v2
         with:
