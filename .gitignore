@@ -30,3 +30,4 @@ Thumbs.db
 
 # Docker image cache (CI only)
 docker_images/
+.swift-version
