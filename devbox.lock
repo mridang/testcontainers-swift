@@ -1,6 +1,24 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "apple-sdk_26@26.5": {
+      "last_modified": "2026-10-02T22:55:44Z",
+      "resolved": "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679#apple-sdk_26",
+      "source": "devbox-search",
+      "version": "26.5",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/b5cc3ic4vx1m8mqsv9v9hkgif7kyzpc2-apple-sdk-26.5",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/b5cc3ic4vx1m8mqsv9v9hkgif7kyzpc2-apple-sdk-26.5"
+        }
+      }
+    },
     "docker@latest": {
       "last_modified": "2026-05-06T12:40:13Z",
       "resolved": "github:NixOS/nixpkgs/07800bee2b362f6c73fe17cb1593a260c5e183c6#docker",
@@ -46,6 +64,163 @@
             }
           ],
           "store_path": "/nix/store/vgrhzpg5a77pdf708d3zvrz0w0wa1fs5-docker-29.4.2"
+        }
+      }
+    },
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2026-10-24T03:22:33Z",
+      "resolved": "github:NixOS/nixpkgs/674a2028661e550a97400c1cc992b9cca9a668a1?lastModified=1792812153&narHash=sha256-T2%2BXBfNbf9pecLUWS4%2BRtuVNZ3W8K5taG5QdV71mWlk%3D"
+    },
+    "swift-format@6.2.4": {
+      "last_modified": "2026-10-02T22:55:44Z",
+      "resolved": "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679#swift-format",
+      "source": "devbox-search",
+      "version": "6.2.4",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/mg2p1zq9r75q9p43dqiyp7y848h1z8mp-swift-format-6.2.4",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/mg2p1zq9r75q9p43dqiyp7y848h1z8mp-swift-format-6.2.4"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/w1ph9zkqb3q4s6hsvy6ahmldzd5qsd5l-swift-format-6.2.4",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/w1ph9zkqb3q4s6hsvy6ahmldzd5qsd5l-swift-format-6.2.4"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5gbsqqkfximalcivrbsfbl767scbaikp-swift-format-6.2.4",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5gbsqqkfximalcivrbsfbl767scbaikp-swift-format-6.2.4"
+        }
+      }
+    },
+    "swift@6.2.4": {
+      "last_modified": "2026-10-02T22:55:44Z",
+      "resolved": "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679#swift",
+      "source": "devbox-search",
+      "version": "6.2.4",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ykvzlnsgiix07vsyvxakiy256yg86072-swift-6.2.4",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/i64wa1knn27vb6m4d4g0aplja3igi4v6-swift-6.2.4-man",
+              "default": true
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/xvzwlxr0xsfl7arjixk94aimjp24s0lw-swift-6.2.4-doc"
+            }
+          ],
+          "store_path": "/nix/store/ykvzlnsgiix07vsyvxakiy256yg86072-swift-6.2.4"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5cfwy7ivrlrkcs4wkai7npch3b7k7qz9-swift-6.2.4",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/x6xnz7cxvklycbd7dfxkk6b428qpd0i8-swift-6.2.4-man",
+              "default": true
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/fnaz3v0k715skmqsdw0m47a0q3c7s64z-swift-6.2.4-doc"
+            }
+          ],
+          "store_path": "/nix/store/5cfwy7ivrlrkcs4wkai7npch3b7k7qz9-swift-6.2.4"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/iqygx5a5a4x9ygwihbwg2h9vf225ryal-swift-6.2.4",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/kyc1aw0c580qd2mgcqlvn03lhxif02xx-swift-6.2.4-man",
+              "default": true
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/4wyysbvwqxwbjk8hzpy65j07yfwcac10-swift-6.2.4-doc"
+            }
+          ],
+          "store_path": "/nix/store/iqygx5a5a4x9ygwihbwg2h9vf225ryal-swift-6.2.4"
+        }
+      }
+    },
+    "swiftPackages.swiftpm@6.2.4": {
+      "last_modified": "2026-10-02T22:55:44Z",
+      "resolved": "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679#swiftPackages.swiftpm",
+      "source": "devbox-search",
+      "version": "6.2.4",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0k903k1rzigmd0gyk28v0phha9pplqp4-swiftpm-6.2.4",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/yqynqgday2bh75lg1fg1mhbjp8aiprks-swiftpm-6.2.4-dev"
+            }
+          ],
+          "store_path": "/nix/store/0k903k1rzigmd0gyk28v0phha9pplqp4-swiftpm-6.2.4"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/f2b8vqipwfkavakxkiavf1dwk92hpk8w-swiftpm-6.2.4",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/h8giy1f2d1ig3v8l3dyk0abk65l9rx05-swiftpm-6.2.4-dev"
+            }
+          ],
+          "store_path": "/nix/store/f2b8vqipwfkavakxkiavf1dwk92hpk8w-swiftpm-6.2.4"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/jrq7mhnhj4zkwh2xgh0lkzdw0vghfp4b-swiftpm-6.2.4",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/p2qdspqyzk58a4f7xjs6xxkbwlij4a66-swiftpm-6.2.4-dev"
+            }
+          ],
+          "store_path": "/nix/store/jrq7mhnhj4zkwh2xgh0lkzdw0vghfp4b-swiftpm-6.2.4"
         }
       }
     },

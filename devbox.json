@@ -1,10 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
   "packages": [
-    "github:mridang/nixpkgs?dir=pkgs/swift#swift",
+    "swift@6.2.4",
+    "swiftPackages.swiftpm@6.2.4",
+    "apple-sdk_26@26.5",
     "docker@latest",
-    "swiftlint@latest"
+    "swiftlint@latest",
+    "swift-format@6.2.4"
   ],
+  "env": {
+    "SDKROOT": "$DEVBOX_PACKAGES_DIR/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+  },
   "shell": {
     "scripts": {
       "build":            "swift build",
