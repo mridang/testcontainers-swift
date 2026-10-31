@@ -1,13 +1,13 @@
 {
-  "originHash" : "ab28829b4a786b609ed33aa841781745c36902063930d44d6cb8b2b5db48e0a0",
+  "originHash" : "39d36edd205c7db208d29cbf74d271f90c0aad3b8f6ccd4df7180055c7c57122",
   "pins" : [
     {
       "identity" : "async-http-client",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/async-http-client.git",
       "state" : {
-        "revision" : "4b99975677236d13f0754339864e5360142ff5a1",
-        "version" : "1.30.3"
+        "revision" : "4c005f955e83f888d5616e579717a36d2dfc6301",
+        "version" : "1.36.2"
       }
     },
     {
@@ -65,6 +65,15 @@
       }
     },
     {
+      "identity" : "swift-configuration",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-configuration.git",
+      "state" : {
+        "revision" : "5aa8bdb1ddd11de51cb30b0ba575f4b05a9a169d",
+        "version" : "1.4.0"
+      }
+    },
+    {
       "identity" : "swift-crypto",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
@@ -114,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio.git",
       "state" : {
-        "revision" : "558f24a4647193b5a0e2104031b71c55d31ff83a",
-        "version" : "2.97.1"
+        "revision" : "6db9d9abd92ad7399b8a564cafbb87d3507245fa",
+        "version" : "2.104.0"
       }
     },
     {
