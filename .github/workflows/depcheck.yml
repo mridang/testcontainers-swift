@@ -9,7 +9,7 @@ defaults:
 jobs:
   check-dependencies:
     name: Check dependencies
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Runner Common Setup

@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   code-formatting:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Runner Common Setup
         uses: mridang/action-runner-common@v1
